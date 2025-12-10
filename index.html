@@ -680,7 +680,7 @@
                         <input type="password" id="login-pass" placeholder="Password" style="margin-bottom: 20px;">
                         <button class="btn-ice" style="width:100%; padding: 12px; margin-bottom: 15px;" onclick="signInEmail()">Login</button>
                         
-                        <p style="font-size:0.9rem; color:var(--text-secondary);">
+                        <p style="font-size:0.9rem; color:var(--text-cyan);">
                             No account? <span style="color:var(--accent-cyan); cursor:pointer; text-decoration:underline;" onclick="toggleAuthView('signup')">Sign Up</span>
                         </p>
                     </div>
@@ -766,7 +766,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, signInAnonymously, signInWithCustomToken, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, collection, getDocs, addDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, getDocs, addDoc, query, orderBy, doc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         // ==========================================
         //  PASTE YOUR FIREBASE CONFIG HERE 👇
@@ -932,6 +932,46 @@
                 alert("Upload Complete! Refresh the page to see live data.");
             } catch (e) {
                 alert("Error uploading: " + e.message);
+            }
+        };
+        
+        // --- COMMENT SUBMISSION (FIXED) ---
+        window.submitComment = async () => {
+            if (!db) return alert("Database not connected. Comment not saved.");
+            if (!window.currentUser || window.authUser.isAnonymous) return alert("Please log in with a registered account to post comments.");
+            if (!currentPostId || currentPostId.startsWith('static_')) return alert("Cannot comment on static posts. Please upload posts to Firebase first.");
+
+            const txt = document.getElementById('new-comment-text').value.trim();
+            if (!txt) return;
+
+            try {
+                const postRef = doc(db, "posts", currentPostId);
+                const commentsCollectionRef = collection(postRef, "comments");
+
+                await addDoc(commentsCollectionRef, {
+                    user: window.currentUser,
+                    text: txt,
+                    timestamp: new Date().toISOString(),
+                    // Store UID for future comment management/deletion
+                    userId: window.authUser.uid
+                });
+                
+                document.getElementById('new-comment-text').value = "";
+                alert("Comment posted successfully!");
+
+                // OPTIONAL: Manually refresh the comments section to see the change instantly
+                // Note: For now, we'll tell the user to refresh until we implement full snapshot listener.
+                // For a simple fix, we simulate adding it locally:
+                const post = window.liveBlogPosts.find(p => p.id === currentPostId);
+                if(post) {
+                    if(!post.comments) post.comments = [];
+                    post.comments.push({user: window.currentUser, text: txt, time: "Just now"});
+                    renderComments(post);
+                }
+                
+            } catch (e) {
+                console.error("Error saving comment:", e);
+                alert("Failed to save comment. Check Firebase rules.");
             }
         };
 
@@ -1187,22 +1227,25 @@
             }
         };
 
-        window.submitComment = () => {
+        window.submitComment = async () => {
             const txt = document.getElementById('new-comment-text').value.trim();
             if(!txt) return;
-            // Note: Saving comments to DB requires specific subcollection logic
-            // For now, this updates UI only.
-            alert(`Comment from ${window.currentUser} posted! (Not saved permanently to database)`);
             
-            // Simulate adding comment locally
-            const post = window.liveBlogPosts.find(p => p.id === currentPostId) || window.staticBlogPosts.find(p => p.id === currentPostId);
-            if(post) {
-                if(!post.comments) post.comments = [];
-                post.comments.push({user: window.currentUser, text: txt, time: "Just now"});
-                renderComments(post);
+            // Call the permanent save function from the module script
+            if (window.module_submitComment) {
+                // The module script will handle the saving and UI update/alert
+                await window.module_submitComment(txt);
+            } else {
+                // Fallback simulation (local-only)
+                alert(`Comment from ${window.currentUser} posted! (Not saved permanently to database)`);
+                const post = window.liveBlogPosts.find(p => p.id === currentPostId) || window.staticBlogPosts.find(p => p.id === currentPostId);
+                if(post) {
+                    if(!post.comments) post.comments = [];
+                    post.comments.push({user: window.currentUser, text: txt, time: "Just now"});
+                    renderComments(post);
+                }
+                document.getElementById('new-comment-text').value = "";
             }
-
-            document.getElementById('new-comment-text').value = "";
         };
 
         // --- 5. DASHBOARD & SAVING LOGIC ---
