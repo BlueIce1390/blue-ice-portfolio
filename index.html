@@ -401,6 +401,18 @@
 
         /* Login Page Specifics */
         .login-card { max-width: 450px; margin: 50px auto; padding: 40px; text-align: center; }
+        
+        /* Google Button Style */
+        .btn-google {
+            background: #fff; color: #444; border: 1px solid #ddd;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            width: 100%; padding: 10px; border-radius: 6px; cursor: pointer;
+            font-family: var(--font-main); font-weight: 600; font-size: 0.9rem;
+            transition: 0.2s; margin-bottom: 15px;
+        }
+        .btn-google:hover { background: #f1f5f9; }
+        .google-icon { width: 18px; height: 18px; }
+
         @keyframes blueShift {
             0% { background-color: #e0f4ff; }
             50% { background-color: #b3e0ff; }
@@ -619,10 +631,42 @@
             <div id="login" class="page-section">
                 <div class="glass tilt-card login-card">
                     <h2 style="margin-bottom: 20px; color: var(--text-primary);">System Access</h2>
+                    
+                    <!-- LOGIN VIEW -->
                     <div id="view-login">
-                        <input type="text" id="login-user" placeholder="Username" value="Guest" style="margin-bottom: 15px;">
-                        <input type="password" placeholder="Password" style="margin-bottom: 20px;">
-                        <button class="btn-ice" style="width:100%; padding: 12px; margin-bottom: 15px;" onclick="performLogin()">Login</button>
+                        <button class="btn-google" onclick="signInGoogle()">
+                            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="google-icon" alt="G">
+                            Sign in with Google
+                        </button>
+                        
+                        <div style="margin: 15px 0; font-size: 0.8rem; color: var(--text-secondary);">OR USE EMAIL</div>
+                        
+                        <input type="email" id="login-email" placeholder="Email" style="margin-bottom: 15px;">
+                        <input type="password" id="login-pass" placeholder="Password" style="margin-bottom: 20px;">
+                        <button class="btn-ice" style="width:100%; padding: 12px; margin-bottom: 15px;" onclick="signInEmail()">Login</button>
+                        
+                        <p style="font-size:0.9rem; color:var(--text-secondary);">
+                            No account? <span style="color:var(--accent-cyan); cursor:pointer; text-decoration:underline;" onclick="toggleAuthView('signup')">Sign Up</span>
+                        </p>
+                    </div>
+
+                    <!-- SIGNUP VIEW -->
+                    <div id="view-signup" style="display:none;">
+                        <div style="margin-bottom: 15px; font-weight:700;">Create Account</div>
+                        <input type="email" id="signup-email" placeholder="Email" style="margin-bottom: 15px;">
+                        <input type="password" id="signup-pass" placeholder="Password (6+ chars)" style="margin-bottom: 20px;">
+                        <button class="btn-ice" style="width:100%; padding: 12px; margin-bottom: 15px;" onclick="signUpEmail()">Sign Up</button>
+                        
+                        <p style="font-size:0.9rem; color:var(--text-secondary);">
+                            Have an account? <span style="color:var(--accent-cyan); cursor:pointer; text-decoration:underline;" onclick="toggleAuthView('login')">Back to Login</span>
+                        </p>
+                    </div>
+                    
+                    <!-- LOGGED IN VIEW -->
+                    <div id="view-profile" style="display:none;">
+                        <h3 style="margin-bottom:15px;">Welcome Back!</h3>
+                        <p id="profile-email" style="margin-bottom:20px; color:var(--accent-cyan);">user@example.com</p>
+                        <button class="btn-ice" style="width:100%; padding: 12px;" onclick="performLogout()">Logout</button>
                     </div>
                 </div>
             </div>
@@ -655,254 +699,131 @@
         <p>&copy; 2025 Blue Ice. Clean & Functional.</p>
     </footer>
 
-    <!-- JAVASCRIPT LOGIC -->
-    <script>
-        // --- 1. GLOBAL STATE ---
-        let currentUser = null; // Default logged out
-        let currentPostId = null;
+    <!-- FIREBASE MODULE -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-        // --- 2. UTILS ---
-        function copyText(text) {
-            navigator.clipboard.writeText(text).then(() => {
-                alert("Copied: " + text);
-            }).catch(err => {
-                console.error('Failed to copy: ', err);
-                alert("Please manually copy: " + text);
-            });
+        // ==========================================
+        //  PASTE YOUR FIREBASE CONFIG HERE 👇
+        // ==========================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyBOd4FbQg20MGV6Moy10j3beeCmFgoazn8",
+            authDomain: "blue-ice-website.firebaseapp.com",
+            projectId: "blue-ice-website",
+            storageBucket: "blue-ice-website.firebasestorage.app",
+            messagingSenderId: "928464189864",
+            appId: "1:928464189864:web:f724346e9115314a23059d"
+        };
+        // ==========================================
+
+        let auth;
+        try {
+            const app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            console.log("Firebase Initialized");
+        } catch (e) {
+            console.warn("Firebase not configured yet. Login will be simulated.");
         }
 
-        // Calculate Reading Time (200 words per minute average)
-        function calculateReadStats(htmlContent) {
-            // Strip HTML tags to get raw text
-            const text = htmlContent.replace(/<[^>]*>?/gm, '');
-            const wordCount = text.trim().split(/\s+/).length;
-            const readTime = Math.ceil(wordCount / 200);
-            return { count: wordCount, time: readTime };
-        }
+        // --- AUTH FUNCTIONS (Exposed to Window) ---
+        window.signInGoogle = async () => {
+            if (!auth) return alert("Please configure Firebase first!");
+            const provider = new GoogleAuthProvider();
+            try {
+                await signInWithPopup(auth, provider);
+                showPage('home');
+            } catch (error) { alert(error.message); }
+        };
 
-        // --- 3. DATA ---
-        
-        // PROJECT CARDS
-        const projectData = [
-            {
-                id: 1,
-                title: "Neon Dashboard UI Demo",
-                description: "A data visualization concept built with d3.js, featuring a high-contrast dark theme.",
-                videoID: "Qd974r58B1s" 
-            },
-            {
-                id: 2,
-                title: "Synth Wave Audio Engine",
-                description: "A real-time synthesizer built entirely with the Web Audio API for browser-based music creation.",
-                videoID: "pW_S40R47g4" 
-            },
-            {
-                id: 3,
-                title: "Adaptive Portfolio Design",
-                description: "Showcasing responsiveness and accessibility testing across various mobile devices and tablets.",
-                videoID: "6I-9V2Q4vW8" 
-            }
-        ];
-
-        // BLOG POSTS (With Comment Arrays)
-        const blogPosts = [
-            {
-                id: 1,
-                title: "Returning to Simplicity",
-                date: "2025-12-09",
-                category: "Engineering",
-                excerpt: "Sometimes less is more. We stripped back the cyberpunk aesthetics for a cleaner 2000s-inspired look.",
-                emoji: "🔮",
-                content: `
-                    <p>In a world of maximalist design and overwhelming notifications, I found myself craving silence. Not literal silence, but visual silence.</p>
-                    <p>We spent the last decade adding blur filters, heavy shadows, and complex animations to the web. While beautiful, it often feels heavy. For this project, 'Blue Ice', I wanted to return to a simpler era of the internet—where structure was clear, and content was king.</p>
-                    <h3>The Glass Effect</h3>
-                    <p>The glassmorphism you see here isn't just a trend; it's a metaphor for transparency. By using <code>backdrop-filter</code>, we create depth without blocking the background context. It feels like a heads-up display (HUD) from a sci-fi movie, but clean enough for a daily journal.</p>
-                    <p>Moving forward, I plan to strip away even more non-essential elements. If a feature doesn't serve the content, it goes.</p>
-                `,
-                comments: [
-                    { user: "DevOne", text: "Love the clean aesthetic!", time: "2 hours ago" }
-                ]
-            },
-            {
-                id: 2,
-                title: "The Void Aesthetic",
-                date: "2025-12-01",
-                category: "Personal",
-                excerpt: "Exploring why deep blue gradients feel so calming in user interfaces. A deep dive into color theory.",
-                emoji: "🌌",
-                content: `
-                    <p>There is something inherently calming about the color blue. It is the color of the deep ocean and the night sky. In user interface design, we often use white or light gray for backgrounds, but 'Dark Mode' has opened up new possibilities.</p>
-                    <p>The 'Void Aesthetic' isn't just about pitch black; it's about deep, rich tones. The background of this site uses a very dark blue (<code>#020617</code>) which provides high contrast for text without the harshness of pure black.</p>
-                    <h3>Color Theory</h3>
-                    <p>Cyan (<code>#0891b2</code>) is used as the accent color here because it represents energy within the void. It pops against the dark background, guiding the user's eye to important elements like buttons and links.</p>
-                    <p>I believe that interfaces should feel like environments. When you visit this site, I want you to feel like you've stepped into a cool, quiet room.</p>
-                `,
-                comments: []
-            }
-        ];
-
-        const marqueeImages = [
-            "image1.jpg", "image2.jpg", "image3.jpg", "image4.jpg", "image5.jpg",
-            "image6.jpg", "image7.jpg", "image8.jpg", "image9.jpg", "image10.jpg",
-            "image11.jpg", "image12.jpg", "image13.jpg", "image14.jpg", "image15.jpg"
-        ];
-
-        // --- 4. RENDERERS ---
-        function renderProjects() {
-            const gridContainer = document.getElementById('projects-grid');
-            gridContainer.innerHTML = ""; 
-
-            projectData.forEach(project => {
-                const card = document.createElement('div');
-                card.className = "glass tilt-card project-card-video";
-                card.onclick = () => alert('Project link clicked for: ' + project.title);
-                
-                card.innerHTML = `
-                    <div class="video-container">
-                        <iframe 
-                            src="https://www.youtube-nocookie.com/embed/${project.videoID}?controls=0" 
-                            title="${project.title}" 
-                            frameborder="0" 
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                            allowfullscreen>
-                        </iframe>
-                    </div>
-                    <h3>${project.title}</h3>
-                    <p style="font-size: 0.9rem; color: var(--text-secondary);">${project.description}</p>
-                `;
-                gridContainer.appendChild(card);
-            });
-        }
-
-        function renderMarquee() {
-            const track = document.getElementById('marquee-track');
-            track.innerHTML = "";
-            const fullList = [...marqueeImages, ...marqueeImages];
-
-            fullList.forEach((imgSrc, index) => {
-                const item = document.createElement('div');
-                item.className = "marquee-item";
-                const fallbackImg = `data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMTUwIiB2aWV3Qm94PSIwIDAgMjAwIDE1MCI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIxNTAiIGZpbGw9IiMzMzMiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSIyMCIgZmlsbD0iI2ZmZiI+SW1hZ2UgJHtpbmRleCsxfTwvdGV4dD48L3N2Zz4=`;
-                item.innerHTML = `<img src="${imgSrc}" alt="Client Image" onerror="this.src='${fallbackImg}'">`;
-                track.appendChild(item);
-            });
-        }
-        
-        function renderBlogFeed() {
-            const listContainer = document.getElementById('blog-list');
-            listContainer.innerHTML = ""; 
-
-            blogPosts.forEach(post => {
-                const stats = calculateReadStats(post.content);
-                const card = document.createElement('div');
-                card.className = "glass tilt-card post-card-horiz";
-                card.onclick = () => openReader(post.id);
-                
-                card.innerHTML = `
-                    <div class="post-info">
-                        <div class="post-meta-row">
-                            <span>📅 ${post.date}</span>
-                            <span class="meta-tag"># ${post.category}</span>
-                        </div>
-                        <h3 class="post-title-lg">${post.title}</h3>
-                        <p class="post-excerpt-sm">${post.excerpt}</p>
-                        <div class="post-stats">${stats.count} words | ${stats.time} min read</div>
-                    </div>
-                    <div class="post-thumb-rect">${post.emoji}</div>
-                `;
-                listContainer.appendChild(card);
-            });
-        }
-
-        // --- 5. READER & COMMENT LOGIC ---
-        function openReader(id) {
-            currentPostId = id;
-            const post = blogPosts.find(p => p.id === id);
-            if(!post) return;
-
-            // Stats
-            const stats = calculateReadStats(post.content);
-
-            // Populate Reader
-            document.getElementById('reader-title').innerText = post.title;
-            document.getElementById('reader-date').innerText = "📅 " + post.date;
-            document.getElementById('reader-stats').innerText = `${stats.count} words • ${stats.time} min read`;
-            document.getElementById('reader-body').innerHTML = post.content;
-
-            // Render Comments
-            renderComments(post);
-            updateCommentFormVisibility();
-
-            // Switch Views
-            document.getElementById('blog-list').style.display = 'none';
-            document.getElementById('blog-reader').style.display = 'block';
-            
-            // Scroll to top of reader
-            document.getElementById('blog').scrollIntoView({behavior: 'smooth'});
-        }
-
-        function closeReader() {
-            document.getElementById('blog-reader').style.display = 'none';
-            document.getElementById('blog-list').style.display = 'block'; 
-            currentPostId = null;
-        }
-
-        function renderComments(post) {
-            const container = document.getElementById('comments-container');
-            container.innerHTML = "";
-
-            if (post.comments.length === 0) {
-                container.innerHTML = `<div style="font-style:italic; color:var(--text-secondary); opacity:0.7;">No comments yet. Be the first!</div>`;
+        window.signInEmail = async () => {
+            if (!auth) {
+                // Fallback Simulation for Demo
+                window.currentUser = document.getElementById('login-email').value || "Guest";
+                updateUIForLogin(window.currentUser);
+                showPage('home');
                 return;
             }
+            const email = document.getElementById('login-email').value;
+            const pass = document.getElementById('login-pass').value;
+            try {
+                await signInWithEmailAndPassword(auth, email, pass);
+                showPage('home');
+            } catch (error) { alert(error.message); }
+        };
 
-            post.comments.forEach(comment => {
-                const div = document.createElement('div');
-                div.className = 'comment-item';
-                div.innerHTML = `
-                    <div class="comment-user">${comment.user}</div>
-                    <div class="comment-text">${comment.text}</div>
-                    <div class="comment-time">${comment.time}</div>
-                `;
-                container.appendChild(div);
+        window.signUpEmail = async () => {
+            if (!auth) return alert("Firebase Config Missing.");
+            const email = document.getElementById('signup-email').value;
+            const pass = document.getElementById('signup-pass').value;
+            try {
+                await createUserWithEmailAndPassword(auth, email, pass);
+                showPage('home');
+            } catch (error) { alert(error.message); }
+        };
+
+        window.performLogout = async () => {
+            if (auth) await signOut(auth);
+            else {
+                window.currentUser = null;
+                updateUIForLogout();
+            }
+        };
+
+        // --- AUTH STATE LISTENER ---
+        if (auth) {
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    const name = user.displayName || user.email.split('@')[0];
+                    window.currentUser = name; // Global var for comments
+                    updateUIForLogin(user.email);
+                } else {
+                    window.currentUser = null;
+                    updateUIForLogout();
+                }
             });
         }
 
-        function updateCommentFormVisibility() {
-            const form = document.getElementById('active-comment-form');
-            const prompt = document.getElementById('login-prompt');
-            
-            if (currentUser && currentUser !== "Guest") {
-                form.style.display = 'block';
-                prompt.style.display = 'none';
-            } else {
-                form.style.display = 'none';
-                prompt.style.display = 'block';
-            }
+        function updateUIForLogin(email) {
+            document.getElementById('nav-login-btn').innerText = "Account";
+            document.getElementById('view-login').style.display = 'none';
+            document.getElementById('view-signup').style.display = 'none';
+            document.getElementById('view-profile').style.display = 'block';
+            document.getElementById('profile-email').innerText = email;
+            // Update comments
+            if(window.updateCommentFormVisibility) window.updateCommentFormVisibility();
         }
 
-        function submitComment() {
-            const input = document.getElementById('new-comment-text');
-            const text = input.value.trim();
-            if (!text) return;
+        function updateUIForLogout() {
+            document.getElementById('nav-login-btn').innerText = "Login";
+            document.getElementById('view-login').style.display = 'block';
+            document.getElementById('view-profile').style.display = 'none';
+            // Update comments
+            if(window.updateCommentFormVisibility) window.updateCommentFormVisibility();
+        }
+    </script>
 
-            const post = blogPosts.find(p => p.id === currentPostId);
-            if (post) {
-                // Add new comment
-                post.comments.push({
-                    user: currentUser,
-                    text: text,
-                    time: "Just now"
-                });
-                
-                // Clear and re-render
-                input.value = "";
-                renderComments(post);
-            }
+    <!-- STANDARD JS LOGIC -->
+    <script>
+        // --- 1. GLOBAL STATE ---
+        // window.currentUser is managed by the module script above
+        let currentPostId = null;
+
+        // --- 2. UTILS & UI ---
+        function toggleAuthView(view) {
+            document.getElementById('view-login').style.display = (view === 'login' ? 'block' : 'none');
+            document.getElementById('view-signup').style.display = (view === 'signup' ? 'block' : 'none');
         }
 
-        // --- 6. CORE SITE LOGIC ---
+        function showPage(id) {
+            window.scrollTo({top:0, behavior:'smooth'});
+            document.querySelectorAll('.page-section').forEach(p => p.classList.remove('active'));
+            setTimeout(() => document.getElementById(id).classList.add('active'), 50);
+            document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+            const link = document.getElementById('nav-'+id);
+            if(link) link.classList.add('active');
+        }
+
         function toggleTheme() {
             const body = document.body;
             const btn = document.querySelector('.theme-toggle-btn');
@@ -915,31 +836,162 @@
             }
         }
 
-        function showPage(id) {
-            window.scrollTo({top:0, behavior:'smooth'});
-            document.querySelectorAll('.page-section').forEach(p => p.classList.remove('active'));
-            setTimeout(() => document.getElementById(id).classList.add('active'), 50);
-            document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
-            const link = document.getElementById('nav-'+id);
-            if(link) link.classList.add('active');
+        function copyText(text) {
+            navigator.clipboard.writeText(text).then(() => alert("Copied!")).catch(() => alert("Manual Copy: " + text));
         }
 
-        function performLogin() {
-            const inputVal = document.getElementById('login-user').value;
-            currentUser = inputVal || "Guest";
-            
-            document.getElementById('nav-login-btn').innerText = currentUser;
-            
-            // Redirect to home or back to blog if they were trying to comment
-            showPage('blog'); 
-            
-            // If a post is currently open, refresh the form state
-            updateCommentFormVisibility();
+        function calculateReadStats(htmlContent) {
+            const text = htmlContent.replace(/<[^>]*>?/gm, '');
+            const wordCount = text.trim().split(/\s+/).length;
+            const readTime = Math.ceil(wordCount / 200);
+            return { count: wordCount, time: readTime };
         }
 
-        // --- 7. INITIALIZATION ---
+        // --- 3. DATA ---
+        const projectData = [
+            { id: 1, title: "Neon Dashboard UI Demo", description: "Data visualization concept.", videoID: "Qd974r58B1s" },
+            { id: 2, title: "Synth Wave Audio Engine", description: "Browser-based music creation.", videoID: "pW_S40R47g4" },
+            { id: 3, title: "Adaptive Portfolio Design", description: "Responsive mobile testing.", videoID: "6I-9V2Q4vW8" }
+        ];
+
+        const blogPosts = [
+            {
+                id: 1,
+                title: "Returning to Simplicity",
+                date: "2025-12-09",
+                category: "Engineering",
+                excerpt: "Stripping back aesthetics for cleaner looks.",
+                emoji: "🔮",
+                content: `<p>In a world of maximalist design...</p>`, 
+                comments: [{ user: "DevOne", text: "Love the clean aesthetic!", time: "2 hours ago" }]
+            },
+            {
+                id: 2,
+                title: "The Void Aesthetic",
+                date: "2025-12-01",
+                category: "Personal",
+                excerpt: "Deep blue gradients in UI design.",
+                emoji: "🌌",
+                content: `<p>There is something inherently calming...</p>`,
+                comments: []
+            }
+        ];
+
+        const marqueeImages = [
+            "image1.jpg", "image2.jpg", "image3.jpg", "image4.jpg", "image5.jpg",
+            "image6.jpg", "image7.jpg", "image8.jpg", "image9.jpg", "image10.jpg",
+            "image11.jpg", "image12.jpg", "image13.jpg", "image14.jpg", "image15.jpg"
+        ];
+
+        // --- 4. RENDERERS ---
+        function renderProjects() {
+            const grid = document.getElementById('projects-grid');
+            grid.innerHTML = "";
+            projectData.forEach(p => {
+                grid.innerHTML += `
+                    <div class="glass tilt-card project-card-video">
+                        <div class="video-container"><iframe src="https://www.youtube-nocookie.com/embed/${p.videoID}?controls=0" title="${p.title}" frameborder="0" allowfullscreen></iframe></div>
+                        <h3>${p.title}</h3><p style="font-size:0.9rem; color:var(--text-secondary);">${p.description}</p>
+                    </div>`;
+            });
+        }
+
+        function renderMarquee() {
+            const track = document.getElementById('marquee-track');
+            track.innerHTML = "";
+            [...marqueeImages, ...marqueeImages].forEach((img, i) => {
+                const fallback = `data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMTUwIiB2aWV3Qm94PSIwIDAgMjAwIDE1MCI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIxNTAiIGZpbGw9IiMzMzMiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSIyMCIgZmlsbD0iI2ZmZiI+SW1hZ2UgJHtpKzF9PC90ZXh0Pjwvc3ZnPg==`;
+                track.innerHTML += `<div class="marquee-item"><img src="${img}" onerror="this.src='${fallback}'"></div>`;
+            });
+        }
+
+        function renderBlogFeed() {
+            const list = document.getElementById('blog-list');
+            list.innerHTML = "";
+            blogPosts.forEach(p => {
+                const stats = calculateReadStats(p.content);
+                const div = document.createElement('div');
+                div.className = "glass tilt-card post-card-horiz";
+                div.onclick = () => openReader(p.id);
+                div.innerHTML = `
+                    <div class="post-info">
+                        <div class="post-meta-row"><span>📅 ${p.date}</span><span class="meta-tag"># ${p.category}</span></div>
+                        <h3 class="post-title-lg">${p.title}</h3><p class="post-excerpt-sm">${p.excerpt}</p>
+                        <div class="post-stats">${stats.count} words | ${stats.time} min read</div>
+                    </div><div class="post-thumb-rect">${p.emoji}</div>`;
+                list.appendChild(div);
+            });
+        }
+
+        // --- 5. READER & COMMENTS ---
+        function openReader(id) {
+            currentPostId = id;
+            const post = blogPosts.find(p => p.id === id);
+            if(!post) return;
+            
+            const stats = calculateReadStats(post.content);
+            document.getElementById('reader-title').innerText = post.title;
+            document.getElementById('reader-date').innerText = "📅 " + post.date;
+            document.getElementById('reader-stats').innerText = `${stats.count} words • ${stats.time} min read`;
+            document.getElementById('reader-body').innerHTML = post.content;
+            
+            renderComments(post);
+            window.updateCommentFormVisibility(); // Call global function
+            
+            document.getElementById('blog-list').style.display = 'none';
+            document.getElementById('blog-reader').style.display = 'block';
+            document.getElementById('blog').scrollIntoView({behavior: 'smooth'});
+        }
+
+        function closeReader() {
+            document.getElementById('blog-reader').style.display = 'none';
+            document.getElementById('blog-list').style.display = 'block';
+            currentPostId = null;
+        }
+
+        function renderComments(post) {
+            const container = document.getElementById('comments-container');
+            container.innerHTML = "";
+            if(post.comments.length === 0) {
+                container.innerHTML = `<div style="font-style:italic; opacity:0.7;">No comments yet.</div>`;
+                return;
+            }
+            post.comments.forEach(c => {
+                container.innerHTML += `
+                    <div class="comment-item">
+                        <div class="comment-user">${c.user}</div>
+                        <div class="comment-text">${c.text}</div>
+                        <div class="comment-time">${c.time}</div>
+                    </div>`;
+            });
+        }
+
+        window.updateCommentFormVisibility = () => {
+            const form = document.getElementById('active-comment-form');
+            const prompt = document.getElementById('login-prompt');
+            if (window.currentUser) {
+                form.style.display = 'block';
+                prompt.style.display = 'none';
+            } else {
+                form.style.display = 'none';
+                prompt.style.display = 'block';
+            }
+        };
+
+        window.submitComment = () => {
+            const txt = document.getElementById('new-comment-text').value.trim();
+            if(!txt) return;
+            const post = blogPosts.find(p => p.id === currentPostId);
+            if(post) {
+                post.comments.push({ user: window.currentUser, text: txt, time: "Just now" });
+                document.getElementById('new-comment-text').value = "";
+                renderComments(post);
+            }
+        };
+
+        // --- 6. INIT ---
         window.addEventListener('load', () => {
-            // Boot Screen Animation
+            // Boot screen
             const bar = document.getElementById('boot-bar'); let w = 0;
             const int = setInterval(() => {
                 w += Math.random() * 8; if(w > 100) w = 100; bar.style.width = w + "%";
@@ -951,18 +1003,16 @@
                     }, 500); 
                 }
             }, 50);
-            
-            // Render Dynamic Content
-            renderBlogFeed();
-            renderMarquee();
+
             renderProjects();
+            renderMarquee();
+            renderBlogFeed();
         });
 
-        // Typewriter
+        // Typewriter & Particles
         const txt = "Blue Ice Systems."; let ti = 0;
         function typeWriter() { const el = document.getElementById('typewriter'); if(ti < txt.length && el) { el.innerHTML += txt.charAt(ti); ti++; setTimeout(typeWriter, 100); } }
-
-        // Particle Canvas
+        
         const canvas = document.getElementById('particle-canvas');
         const ctx = canvas.getContext('2d');
         let particles = [];
@@ -989,8 +1039,7 @@
         for (let i = 0; i < 80; i++) particles.push(new Particle());
         function animateParticles() { ctx.clearRect(0, 0, canvas.width, canvas.height); particles.forEach(p => { p.update(); p.draw(); }); requestAnimationFrame(animateParticles); }
         animateParticles();
-        
-        // Tilt Effect
+
         document.addEventListener('mousemove', (e) => {
             document.querySelectorAll('.tilt-card').forEach(card => {
                 const rect = card.getBoundingClientRect();
