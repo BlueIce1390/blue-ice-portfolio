@@ -241,11 +241,15 @@
         }
         .marquee-track { display: flex; gap: 20px; width: max-content; animation: scroll 120s linear infinite; }
         .marquee-item {
-            width: 200px; height: 150px; flex-shrink: 0;
+            /* ADJUSTED FOR MORE RECTANGULAR LOOK */
+            width: 280px; 
+            height: 120px; 
+            flex-shrink: 0;
             background: var(--glass-highlight); border-radius: 8px;
             border: 1px solid var(--glass-border); overflow: hidden;
             display: flex; align-items: center; justify-content: center;
         }
+
         .marquee-item img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease; }
         .marquee-item img:hover { transform: scale(1.05); }
         @keyframes scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
@@ -856,14 +860,20 @@
         };
 
         window.resetPassword = async () => {
-            if(!auth) return;
+            if(!auth || !auth.currentUser) return alert("You must be logged in to reset password.");
             const email = auth.currentUser.email;
             if(!email) return alert("No email found.");
-            try {
-                await sendPasswordResetEmail(auth, email);
-                alert(`Password reset email sent to ${email}`);
-            } catch(e) {
-                alert("Error: " + e.message);
+            
+            // Firebase can only reset passwords for Email/Password users, not Google/Anonymous
+            if (auth.currentUser.providerData.some(p => p.providerId === 'password')) {
+                try {
+                    await sendPasswordResetEmail(auth, email);
+                    alert(`Password reset email sent to ${email}`);
+                } catch(e) {
+                    alert("Error sending email: " + e.message);
+                }
+            } else {
+                 alert("Password reset is only available for accounts created with Email/Password. Please manage your Google password directly.");
             }
         }
 
@@ -992,7 +1002,7 @@
                 date: "2025-12-09",
                 category: "Engineering",
                 excerpt: "Stripping back aesthetics for cleaner looks.",
-                image: "image1.jpg",
+                image: "https://placehold.co/400x350/0891b2/fff?text=Design+Post",
                 content: `<p>In a world of maximalist design...</p>`, 
                 comments: []
             },
@@ -1002,7 +1012,7 @@
                 date: "2025-12-01",
                 category: "Personal",
                 excerpt: "Deep blue gradients in UI design.",
-                image: "image2.jpg",
+                image: "https://placehold.co/400x350/020617/fff?text=Dark+Mode+Vibe",
                 content: `<p>There is something inherently calming...</p>`,
                 comments: []
             }
@@ -1034,15 +1044,7 @@
             }
         }
 
-        // Initialize button icon on load
-        window.addEventListener('load', () => {
-            const btn = document.querySelector('.theme-toggle-btn');
-            if (localStorage.getItem('theme') === 'dark') {
-                btn.innerHTML = '☀';
-            } else {
-                btn.innerHTML = '☾';
-            }
-        });
+        // Initialize button icon on load is handled by the immediate script block now.
 
         function showPage(id) {
             window.scrollTo({top:0, behavior:'smooth'});
@@ -1081,7 +1083,7 @@
             const track = document.getElementById('marquee-track');
             track.innerHTML = "";
             [...marqueeImages, ...marqueeImages].forEach((img, i) => {
-                const fallback = `data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMTUwIiB2aWV3Qm94PSIwIDAgMjAwIDE1MCI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIxNTAiIGZpbGw9IiMzMzMiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSIyMCIgZmlsbD0iI2ZmZiI+SW1hZ2UgJHtpKzF9PC90ZXh0Pjwvc3ZnPg==`;
+                const fallback = `data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyODAiIGhlaWdodD0iMTIwIiB2aWV3Qm94PSIwIDAgMjgwIDEyMCI+PHJlY3Qgd2lkdGg9IjI4MCIgaGVpZ2h0PSIxMjAiIGZpbGw9IiMzMzMiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSIyMCIgZmlsbD0iI2ZmZiI+SW1hZ2UgJHtpKzF9PC90ZXh0Pjwvc3ZnPg==`;
                 track.innerHTML += `<div class="marquee-item"><img src="${img}" onerror="this.src='${fallback}'"></div>`;
             });
         }
@@ -1094,7 +1096,7 @@
                 
                 let thumbContent;
                 if (p.image) {
-                    thumbContent = `<img src="${p.image}" alt="${p.title}" style="width:100%; height:100%; object-fit:cover;">`;
+                    thumbContent = `<img src="${p.image}" alt="${p.title}" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMTQwIiB2aWV3Qm94PSIwIDAgMjAwIDE0MCI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIxNDAiIGZpbGw9IiMzMzMiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSIyMCIgZmlsbD0iI2ZmZiI+Q292ZXIgSW1hZ2U8L3RleHQ+PC9zdmc+'" style="width:100%; height:100%; object-fit:cover;">`;
                 } else {
                     thumbContent = p.emoji || '📄';
                 }
@@ -1148,6 +1150,9 @@
             document.getElementById('blog-reader').style.display = 'none';
             document.getElementById('blog-list').style.display = 'block';
             currentPostId = null;
+            // When closing the reader, make sure to hide dashboard content
+            const dashboardContent = document.getElementById('dashboard-content');
+            if (dashboardContent) dashboardContent.style.display = 'none';
         }
 
         function renderComments(post) {
@@ -1186,7 +1191,16 @@
             if(!txt) return;
             // Note: Saving comments to DB requires specific subcollection logic
             // For now, this updates UI only.
-            alert("Comment posted! (To save permanently, add comment subcollection logic)");
+            alert(`Comment from ${window.currentUser} posted! (Not saved permanently to database)`);
+            
+            // Simulate adding comment locally
+            const post = window.liveBlogPosts.find(p => p.id === currentPostId) || window.staticBlogPosts.find(p => p.id === currentPostId);
+            if(post) {
+                if(!post.comments) post.comments = [];
+                post.comments.push({user: window.currentUser, text: txt, time: "Just now"});
+                renderComments(post);
+            }
+
             document.getElementById('new-comment-text').value = "";
         };
 
@@ -1257,7 +1271,7 @@
                 if(myComments.length === 0) {
                     container.innerHTML = `<div style="font-style:italic; opacity:0.7;">You haven't commented on anything yet.</div>`;
                 } else {
-                    container.innerHTML = `<div style="margin-bottom:15px; font-weight:700;">Your Comments</div>`;
+                    container.innerHTML = `<div style="margin-bottom:15px; font-weight:700;">Your Comments (Not yet saved to cloud)</div>`;
                     myComments.forEach(c => {
                         container.innerHTML += `
                             <div style="background:rgba(0,0,0,0.03); padding:10px; border-radius:6px; margin-bottom:10px; font-size:0.9rem;">
