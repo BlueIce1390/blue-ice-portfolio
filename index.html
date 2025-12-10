@@ -443,6 +443,16 @@
 </head>
 <body>
 
+    <!-- IMPORTANT: Check saved theme immediately to prevent flash -->
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'dark') {
+                document.body.setAttribute('data-theme', 'dark');
+            }
+        })();
+    </script>
+
     <!-- Audio (Hidden) -->
     <audio id="bg-music" loop><source src="" type="audio/mpeg"></audio>
 
@@ -543,7 +553,7 @@
                                 <img src="IMG_4740.jpg" alt="Profile" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMTAwIDEwMCI+PHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxNTAiIGZpbGw9IiNjY2MiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSI1MCI+8J+R👤PC90ZXh0Pjwvc3ZnPg==';">
                             </div>
                             <div class="profile-name">Archan Bhatt</div>
-                            <div class="profile-bio">Just some random dude who has thoughts</div>
+                            <div class="profile-bio">Software dev, privacy enthusiast, and UI designer.</div>
                         </div>
                         <div class="glass blog-sidebar-widget" style="padding: 20px;">
                             <div class="sidebar-header" style="border:none; margin-bottom:10px;">Categories</div>
@@ -1010,6 +1020,30 @@
             document.getElementById('view-signup').style.display = (view === 'signup' ? 'block' : 'none');
         }
 
+        function toggleTheme() {
+            const body = document.body;
+            const btn = document.querySelector('.theme-toggle-btn');
+            if (body.getAttribute('data-theme') === 'dark') {
+                body.removeAttribute('data-theme');
+                btn.innerHTML = '☾';
+                localStorage.setItem('theme', 'light');
+            } else {
+                body.setAttribute('data-theme', 'dark');
+                btn.innerHTML = '☀';
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+
+        // Initialize button icon on load
+        window.addEventListener('load', () => {
+            const btn = document.querySelector('.theme-toggle-btn');
+            if (localStorage.getItem('theme') === 'dark') {
+                btn.innerHTML = '☀';
+            } else {
+                btn.innerHTML = '☾';
+            }
+        });
+
         function showPage(id) {
             window.scrollTo({top:0, behavior:'smooth'});
             document.querySelectorAll('.page-section').forEach(p => p.classList.remove('active'));
@@ -1017,18 +1051,6 @@
             document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
             const link = document.getElementById('nav-'+id);
             if(link) link.classList.add('active');
-        }
-
-        function toggleTheme() {
-            const body = document.body;
-            const btn = document.querySelector('.theme-toggle-btn');
-            if (body.getAttribute('data-theme') === 'dark') {
-                body.removeAttribute('data-theme');
-                btn.innerHTML = '☾';
-            } else {
-                body.setAttribute('data-theme', 'dark');
-                btn.innerHTML = '☀';
-            }
         }
 
         function copyText(text) {
