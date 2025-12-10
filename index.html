@@ -527,7 +527,7 @@
                     <div class="blog-left-sidebar">
                         <div class="glass blog-sidebar-widget profile-card">
                             <div class="profile-img-container">
-                                <img src="neutral1 Background Removed.jpg" alt="Profile" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMTAwIDEwMCI+PHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiNjY2MiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSI1MCI+8J+R👤PC90ZXh0Pjwvc3ZnPg==';">
+                                <img src="neutral1 Background Removed.jpg" alt="Profile" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMTAwIDEwMCI+PHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxNTAiIGZpbGw9IiNjY2MiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSI1MCI+8J+R👤PC90ZXh0Pjwvc3ZnPg==';">
                             </div>
                             <div class="profile-name">Archan Bhatt</div>
                             <div class="profile-bio">Software dev, privacy enthusiast, and UI designer.</div>
@@ -715,7 +715,7 @@
     <!-- FIREBASE MODULE -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, collection, getDocs, addDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         // ==========================================
@@ -739,6 +739,30 @@
             console.log("Firebase Initialized");
         } catch (e) {
             console.warn("Firebase config missing or invalid.");
+        }
+
+        // --- NEW: INITIALIZATION WITH AUTH ---
+        async function initApp() {
+            if (!auth) {
+                // Fallback if auth not initialized (config missing)
+                if(window.loadDynamicContent) window.loadDynamicContent();
+                return;
+            }
+
+            try {
+                // Check if we have a custom token from the environment (Immersive Canvas specific)
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    // Standard fallback: Anonymous auth ensures we have permissions to read public data
+                    await signInAnonymously(auth); 
+                }
+            } catch (e) {
+                console.warn("Auto-auth failed (Check if Anonymous Auth is enabled in Firebase Console):", e);
+            }
+
+            // Load data ONLY after auth attempt
+            if(window.loadDynamicContent) window.loadDynamicContent();
         }
 
         // --- AUTH FUNCTIONS ---
@@ -874,6 +898,9 @@
             document.getElementById('view-profile').style.display = 'none';
             if(window.updateCommentFormVisibility) window.updateCommentFormVisibility();
         }
+
+        // Start App
+        initApp();
     </script>
 
     <!-- STANDARD JS LOGIC -->
@@ -1079,13 +1106,7 @@
                 }
             }, 50);
 
-            // Try loading dynamic content, it falls back to static if fails
-            if (window.loadDynamicContent) window.loadDynamicContent();
-            else {
-                // Fallback if module script fails completely
-                renderProjects(window.staticProjectData);
-                renderBlogFeed(window.staticBlogPosts);
-            }
+            // DATA LOADING is now handled by initApp in the module script above
             renderMarquee();
         });
 
