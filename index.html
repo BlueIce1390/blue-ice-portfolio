@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blue Ice</title>
+    
+    <!-- Fonts: Montserrat (Main) & VT323 (Subtle accents) -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=VT323&display=swap" rel="stylesheet">
+    
+    <style>
+        /* --- 1. THEME CONFIGURATION --- */
+        :root {
+            --bg-deep: #f0f9ff;
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --accent-cyan: #0891b2;  
+            --accent-blue: #2563eb;
+            --glass-bg: rgba(255, 255, 255, 0.65);
+            --glass-border: rgba(0, 0, 0, 0.05);
+            --glass-highlight: rgba(255, 255, 255, 0.8);
+            --glass-blur: blur(25px);
+            --shadow-card: 0 4px 15px rgba(0, 0, 0, 0.05);
+            --orb-opacity: 0.15;
+            --font-pixel: 'VT323', monospace;
+            --font-main: 'Montserrat', sans-serif;
+        }
+
+        body[data-theme="dark"] {
+            --bg-deep: #020617;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --accent-cyan: #22d3ee;  
+            --accent-blue: #3b82f6;
+            --glass-bg: rgba(15, 23, 42, 0.65);
+            --glass-border: rgba(255, 255, 255, 0.15);
+            --glass-highlight: rgba(255, 255, 255, 0.05);
+            --shadow-card: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --orb-opacity: 0.3;
+        }
+
+        /* --- 2. CORE SETUP --- */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            background-color: var(--bg-deep);
+            animation: blueShift 20s ease-in-out infinite;
+            color: var(--text-primary);
+            font-family: var(--font-main);
+            overflow-x: hidden;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            cursor: default;
+            line-height: 1.6;
+            transition: background-color 0.5s ease, color 0.5s ease;
+        }
+
+        /* --- 3. BACKGROUND FX --- */
+        .bg-mesh {
+            position: fixed;
+            top: -50%; left: -50%; width: 200%; height: 200%;
+            z-index: -3;
+            background: radial-gradient(circle at 50% 50%, transparent 0%, rgba(0,0,0,0.2) 100%);
+            background-size: 200% 200%;
+            pointer-events: none;
+        }
+
+        .bg-orb {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(100px);
+            z-index: -2;
+            opacity: var(--orb-opacity);
+            transition: opacity 0.5s ease;
+            animation: floatOrb 20s infinite ease-in-out;
+        }
+        .orb-1 { top: 10%; left: 10%; width: 500px; height: 500px; background: var(--accent-blue); animation-delay: 0s; }
+        .orb-2 { bottom: 10%; right: 10%; width: 400px; height: 400px; background: var(--accent-cyan); animation-delay: -8s; }
+
+        #particle-canvas {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -1; pointer-events: none;
+            opacity: 0.6;
+        }
+
+        @keyframes floatOrb {
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(30px, -30px); }
+        }
+
+        /* --- 4. GLASS UTILITIES & TILT --- */
+        .glass {
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--glass-border);
+            border-top: 1px solid var(--glass-highlight);
+            box-shadow: var(--shadow-card);
+            border-radius: 12px;
+            position: relative;
+            overflow: hidden;
+            transition: background 0.3s ease, border 0.3s ease;
+        }
+
+        .tilt-card {
+            transform-style: preserve-3d;
+            perspective: 1000px;
+            transform: perspective(1000px) rotateX(0) rotateY(0) scale(1);
+            transition: transform 0.1s ease-out;
+        }
+
+        /* --- 5. NAVIGATION --- */
+        .top-bar {
+            position: sticky; top: 0; z-index: 100;
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 20px 40px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--glass-border);
+            transition: background 0.3s ease;
+        }
+
+        .logo {
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 700;  
+            font-size: 1.5rem;  
+            color: var(--text-primary);
+            text-decoration: none;
+            cursor: pointer;
+            letter-spacing: -0.5px;
+        }
+
+        .nav-links { display: flex; gap: 30px; }
+        .nav-links a {
+            text-decoration: none; color: var(--text-secondary);
+            font-weight: 500; font-size: 0.95rem;  
+            transition: 0.2s; position: relative;
+            cursor: pointer;
+        }
+        .nav-links a:hover, .nav-links a.active { color: var(--text-primary); }
+        .nav-links a::after {
+            content: ''; position: absolute; bottom: -4px; left: 0; width: 0%; height: 2px;
+            background: var(--accent-cyan); transition: width 0.3s;
+        }
+        .nav-links a:hover::after, .nav-links a.active::after { width: 100%; }
+
+        .nav-controls { display: flex; align-items: center; gap: 15px; }
+
+        .theme-toggle-btn {
+            background: transparent;
+            border: 1px solid var(--glass-border);
+            color: var(--text-primary);
+            width: 36px; height: 36px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            transition: 0.3s;
+            font-size: 1.1rem;
+        }
+
+        .theme-toggle-btn:hover { background: var(--glass-highlight); color: var(--accent-cyan); border-color: var(--accent-cyan); }
+
+        /* --- 6. LAYOUT --- */
+        .container {
+            max-width: 1400px; margin: 40px auto;
+            display: grid; grid-template-columns: 1fr 280px; /* Main Content | Global Sidebar */
+            gap: 40px; padding: 0 30px; flex-grow: 1;
+        }
+        
+        main { min-width: 0; }
+
+        @media (max-width: 900px) {
+            .container { grid-template-columns: 1fr; }
+            .top-bar { padding: 15px 20px; }
+            .nav-links { display: none; }
+        }
+
+        /* --- 7. PAGES & COMPONENTS --- */
+        .page-section { display: none; animation: fadeIn 0.8s ease; }
+        .page-section.active { display: block; }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .section-header-pill {
+            display: inline-block;
+            background: var(--accent-blue);
+            color: #fff;
+            padding: 6px 15px;
+            border-radius: 9999px; /* Pill shape */
+            font-weight: 700;
+            font-size: 0.8rem;
+            letter-spacing: 0.5px;
+            margin-bottom: 25px;
+            text-transform: uppercase;
+            box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3); /* Subtle blue shadow */
+        }
+        
+        h1 { font-size: 2.5rem; font-weight: 800; line-height: 1.2; margin-bottom: 10px; color: var(--text-primary); }
+        h2 { font-size: 1.8rem; font-weight: 700; margin-bottom: 15px; color: var(--text-primary); }
+        h3 { font-size: 1.2rem; font-weight: 600; color: var(--text-primary); }
+        
+        .btn-ice {
+            background: transparent;
+            border: 1px solid var(--text-secondary);
+            color: var(--text-primary);
+            padding: 8px 20px;
+            font-family: var(--font-main);
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+            border-radius: 6px;
+        }
+        .btn-ice:hover {  
+            border-color: var(--accent-cyan);  
+            color: var(--accent-cyan);  
+            background: rgba(34, 211, 238, 0.1);
+        }
+
+        /* --- 8. PROJECTS PAGE --- */
+        .projects-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .project-card-video { padding: 20px; cursor: pointer; }
+        .video-container {
+            position: relative; width: 100%; padding-top: 56.25%; 
+            margin-bottom: 15px; border-radius: 6px; overflow: hidden;
+            border: 1px solid var(--glass-border); background: var(--glass-highlight);
+        }
+        .video-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
+        @media (max-width: 700px) { .projects-grid { grid-template-columns: 1fr; } }
+
+        /* --- 9. INFINITE MARQUEE --- */
+        .marquee-container {
+            width: 100%; overflow: hidden; position: relative;
+            background: var(--glass-bg); border: 1px solid var(--glass-border);
+            border-radius: 12px; padding: 20px 0; margin-bottom: 30px;
+            box-shadow: var(--shadow-card);
+        }
+        .marquee-track { display: flex; gap: 20px; width: max-content; animation: scroll 120s linear infinite; }
+        .marquee-item {
+            width: 200px; height: 150px; flex-shrink: 0;
+            background: var(--glass-highlight); border-radius: 8px;
+            border: 1px solid var(--glass-border); overflow: hidden;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .marquee-item img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease; }
+        .marquee-item img:hover { transform: scale(1.05); }
+        @keyframes scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+
+        /* --- 10. BLOG LAYOUT & READER --- */
+        .blog-internal-layout {
+            display: grid;
+            grid-template-columns: 240px 1fr; /* Sidebar | Feed */
+            gap: 30px;
+        }
+
+        .blog-sidebar-widget { margin-bottom: 20px; }
+        
+        .profile-card { padding: 20px; text-align: center; }
+        .profile-img-container {
+            width: 100px; height: 100px;
+            margin: 0 auto 10px auto;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 2px solid var(--glass-border);
+            background: var(--glass-highlight);
+        }
+        .profile-img-container img { width: 100%; height: 100%; object-fit: contain; }
+        .profile-name { font-weight: 800; font-size: 1.1rem; color: var(--text-primary); }
+        .profile-bio { font-size: 0.8rem; color: var(--text-secondary); margin-top: 5px; line-height: 1.4; }
+        
+        .social-row { display: flex; justify-content: center; gap: 10px; margin-top: 15px; }
+        .social-icon {
+            width: 28px; height: 28px;
+            background: var(--glass-highlight);
+            border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.8rem; color: var(--text-secondary);
+            cursor: pointer; transition: 0.2s;
+        }
+        .social-icon:hover { background: var(--accent-cyan); color: #000; }
+
+        .cat-list { list-style: none; margin-top: 10px; }
+        .cat-item {
+            display: flex; justify-content: space-between;
+            padding: 6px 0; border-bottom: 1px solid var(--glass-border);
+            font-size: 0.85rem; color: var(--text-secondary); cursor: pointer;
+        }
+        .cat-item:hover { color: var(--accent-cyan); }
+        .cat-count { background: var(--glass-highlight); padding: 1px 6px; border-radius: 4px; font-size: 0.75rem; }
+
+        /* Blog Feed List Styles */
+        .post-card-horiz {
+            display: flex;
+            justify-content: space-between;
+            padding: 25px;
+            margin-bottom: 20px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            gap: 20px;
+        }
+        .post-card-horiz:hover { transform: translateY(-3px); border-color: var(--accent-cyan); }
+
+        .post-info { flex: 1; display: flex; flex-direction: column; }
+        
+        .post-meta-row {
+            display: flex; align-items: center; gap: 10px;
+            font-size: 0.75rem; color: var(--text-secondary);
+            margin-bottom: 10px; font-family: var(--font-main);
+        }
+        .meta-tag {  
+            background: rgba(34, 211, 238, 0.1); color: var(--accent-cyan);  
+            padding: 2px 8px; border-radius: 4px; font-weight: 600;
+        }
+
+        .post-title-lg { font-size: 1.4rem; font-weight: 700; color: var(--text-primary); line-height: 1.3; margin-bottom: 10px; }
+        .post-excerpt-sm {
+            font-size: 0.9rem; color: var(--text-secondary);
+            line-height: 1.6; margin-bottom: 15px;
+            display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+        }
+        .post-stats { font-size: 0.75rem; color: var(--text-secondary); opacity: 0.7; }
+        .post-thumb-rect {
+            width: 200px; height: 140px;
+            background: var(--glass-highlight);
+            border-radius: 8px;
+            flex-shrink: 0;
+            overflow: hidden;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 2rem; border: 1px solid var(--glass-border);
+        }
+
+        /* --- BLOG READER VIEW --- */
+        #blog-reader { display: none; animation: fadeIn 0.5s ease; }
+        .reader-header { margin-bottom: 30px; border-bottom: 1px solid var(--glass-border); padding-bottom: 20px; }
+        .reader-title { font-size: 2.2rem; font-weight: 800; margin-bottom: 15px; color: var(--text-primary); }
+        .reader-meta { font-size: 0.85rem; color: var(--text-secondary); display: flex; gap: 15px; align-items: center; }
+        .reader-content { font-size: 1.05rem; line-height: 1.8; color: var(--text-primary); }
+        .reader-content p { margin-bottom: 20px; }
+        .reader-content h3 { margin-top: 30px; margin-bottom: 15px; font-size: 1.4rem; color: var(--accent-cyan); }
+        
+        /* Comments Section */
+        .comments-section { margin-top: 50px; border-top: 1px solid var(--glass-border); padding-top: 30px; }
+        .comments-header { font-size: 1.2rem; font-weight: 700; margin-bottom: 20px; }
+        .comment-list { margin-bottom: 30px; }
+        .comment-item { 
+            background: var(--glass-highlight); border: 1px solid var(--glass-border);
+            padding: 15px; border-radius: 8px; margin-bottom: 15px;
+        }
+        .comment-user { font-weight: 700; color: var(--accent-cyan); font-size: 0.9rem; margin-bottom: 5px; }
+        .comment-text { font-size: 0.95rem; color: var(--text-primary); }
+        .comment-time { font-size: 0.7rem; color: var(--text-secondary); margin-top: 8px; text-align: right;}
+
+        .comment-form { display: none; } /* Hidden by default until login */
+        .login-prompt { background: rgba(37, 99, 235, 0.1); padding: 20px; text-align: center; border-radius: 8px; color: var(--text-primary); }
+
+        @media (max-width: 768px) {
+            .blog-internal-layout { grid-template-columns: 1fr; }
+            .post-card-horiz { flex-direction: column-reverse; }
+            .post-thumb-rect { width: 100%; height: 180px; }
+        }
+
+        /* --- 11. SIDEBAR WIDGETS --- */
+        .sidebar-widget { padding: 25px; margin-bottom: 25px; }
+        .sidebar-header {
+            font-family: var(--font-main); font-weight: 700; font-size: 0.85rem;
+            text-transform: uppercase; letter-spacing: 1px; color: var(--accent-cyan);
+            margin-bottom: 15px; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px;
+        }
+        .char-display {
+            width: 100%; height: 250px; overflow: hidden; border-radius: 8px; 
+            position: relative; background: var(--glass-highlight); border: 1px solid var(--glass-border);
+        }
+        .char-display img { width: 100%; height: 100%; object-fit: cover; object-position: center top; }
+
+        /* --- 12. MISC --- */
+        input, textarea {
+            width: 100%; padding: 10px; background: var(--glass-highlight);
+            border: 1px solid var(--glass-border); color: var(--text-primary);
+            border-radius: 4px; margin-bottom: 10px; font-family: var(--font-main);
+        }
+        input:focus { outline: none; border-color: var(--accent-cyan); }
+
+        #boot-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-deep); z-index: 9999;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: opacity 1s ease-out; color: var(--text-primary);
+        }
+        
+        .pixel-list li {
+            list-style: none; margin-bottom: 8px; font-size: 0.9rem;
+            display: flex; align-items: center; gap: 8px; cursor: pointer;
+            transition: 0.2s; color: var(--text-secondary);
+        }
+        .pixel-list li:hover { color: var(--text-primary); transform: translateX(5px); }
+        .px-icon { width: 6px; height: 6px; background: var(--accent-cyan); display: inline-block; }
+
+        /* Login Page Specifics */
+        .login-card { max-width: 450px; margin: 50px auto; padding: 40px; text-align: center; }
+        @keyframes blueShift {
+            0% { background-color: #e0f4ff; }
+            50% { background-color: #b3e0ff; }
+            100% { background-color: #e0f4ff; }
+        }
+
+        body[data-theme="dark"] { animation: blueShiftDark 20s ease-in-out infinite; }
+        @keyframes blueShiftDark {
+            0% { background-color: #081122; }
+            50% { background-color: #0d1a33; }
+            100% { background-color: #081122; }
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- Audio (Hidden) -->
+    <audio id="bg-music" loop><source src="" type="audio/mpeg"></audio>
+
+    <!-- BACKGROUND FX -->
+    <div class="bg-mesh"></div>
+    <div class="bg-orb orb-1"></div>
+    <div class="bg-orb orb-2"></div>
+    <canvas id="particle-canvas"></canvas>
+
+    <!-- BOOT SCREEN -->
+    <div id="boot-screen">
+        <div style="font-weight: 800; font-size: 2rem; letter-spacing: 2px;">Blue Ice</div>
+        <div style="margin-top: 10px; font-size: 0.8rem; color: var(--text-secondary);">ESTABLISHING CONNECTION...</div>
+        <div style="width: 200px; height: 2px; background: var(--glass-border); margin-top: 20px;">
+            <div id="boot-bar" style="width: 0%; height: 100%; background: var(--accent-cyan); transition: width 0.1s;"></div>
+        </div>
+    </div>
+
+    <!-- NAVIGATION -->
+    <nav class="top-bar">
+        <div class="logo" onclick="showPage('home')">Blue Ice</div>
+        <div class="nav-links">
+            <a onclick="showPage('home')" id="nav-home" class="active">Home</a>
+            <a onclick="showPage('projects')" id="nav-projects">Projects</a>
+            <a onclick="showPage('blog')" id="nav-blog">Blog</a>
+            <a onclick="showPage('contact')" id="nav-contact">Contact</a>
+        </div>
+        <div class="nav-controls">
+            <button class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle Theme">☾</button>
+            <button id="nav-login-btn" class="btn-ice" style="padding: 6px 16px; font-size: 0.8rem;" onclick="showPage('login')">Login</button>
+        </div>
+    </nav>
+
+    <!-- MAIN CONTAINER -->
+    <div class="container">
+        
+        <!-- MAIN CONTENT AREA -->
+        <main>
+            <!-- HOME TAB -->
+            <div id="home" class="page-section active">
+                <div class="glass tilt-card" style="padding: 40px; margin-bottom: 30px;">
+                    <h1 id="typewriter"></h1>
+                    <p style="font-size: 1.1rem; color: var(--accent-cyan); margin-bottom: 20px;">Minimal. Functional. Cold.</p>
+                    <p style="color: var(--text-secondary); max-width: 600px;">
+                        Welcome to my personal corner of the web. A distraction-free environment for sharing projects and thoughts.
+                    </p>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div class="glass tilt-card" style="padding: 25px;">
+                        <h3>Latest</h3>
+                        <p style="margin-top: 10px; font-size: 0.9rem; color: var(--text-secondary);">Redesigned interface.</p>
+                    </div>
+                    <div class="glass tilt-card" style="padding: 25px;">
+                        <h3>Status</h3>
+                        <p style="margin-top: 10px; font-size: 0.9rem; color: var(--text-secondary);">Building React Modules.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PROJECTS TAB -->
+            <div id="projects" class="page-section">
+                <h2 style="margin-bottom: 30px;">Featured Works</h2>
+                <div class="projects-grid" id="projects-grid">
+                    <!-- Projects injected here via JS -->
+                </div>
+
+                <hr style="border-top: 1px solid var(--glass-border); margin: 50px 0;">
+
+                <!-- INFINITE MARQUEE SECTION -->
+                <div class="section-header-pill">Client Love</div>
+                <h2 style="margin-bottom: 25px;">What Others Say</h2>
+                
+                <div class="marquee-container">
+                    <div class="marquee-track" id="marquee-track">
+                        <!-- JS Injected Images -->
+                    </div>
+                </div>
+
+                <!-- CTA -->
+                <div class="glass tilt-card" style="padding: 40px; text-align: center; margin-top: 30px;">
+                    <h3 style="margin-bottom: 15px; font-size: 1.6rem;">Like what you see?</h3>
+                    <p style="color: var(--text-secondary); margin-bottom: 25px; max-width: 500px; margin-left: auto; margin-right: auto;">
+                        Let's build something amazing together. I'm currently accepting new projects.
+                    </p>
+                    <button class="btn-ice" style="padding: 12px 35px; font-size: 1rem; background: var(--accent-cyan); color: #fff; border: none;" onclick="showPage('contact')">Start a Project →</button>
+                </div>
+            </div>
+
+            <!-- BLOG TAB WITH READER & COMMENTS -->
+            <div id="blog" class="page-section">
+                <div class="blog-internal-layout">
+                    
+                    <!-- Left Sidebar (Internal) -->
+                    <div class="blog-left-sidebar">
+                        <div class="glass blog-sidebar-widget profile-card">
+                            <div class="profile-img-container">
+                                <img src="neutral1 Background Removed.jpg" alt="Profile" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMTAwIDEwMCI+PHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxNTAiIGZpbGw9IiNjY2MiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSI1MCI+8J+R👤PC90ZXh0Pjwvc3ZnPg==';">
+                            </div>
+                            <div class="profile-name">Archan Bhatt</div>
+                            <div class="profile-bio">Software dev, privacy enthusiast, and UI designer.</div>
+                        </div>
+                        <div class="glass blog-sidebar-widget" style="padding: 20px;">
+                            <div class="sidebar-header" style="border:none; margin-bottom:10px;">Categories</div>
+                            <ul class="cat-list">
+                                <li class="cat-item"><span>Engineering</span> <span class="cat-count">3</span></li>
+                                <li class="cat-item"><span>Personal</span> <span class="cat-count">5</span></li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Right Feed & Reader Container -->
+                    <div class="blog-main-area">
+                        <h2 style="margin-bottom: 20px;">Journal</h2>
+                        
+                        <!-- 1. BLOG LIST VIEW (Visible by default) -->
+                        <div id="blog-list">
+                            <!-- Posts are injected here via JS -->
+                        </div>
+
+                        <!-- 2. BLOG READER VIEW (Hidden by default) -->
+                        <div id="blog-reader" class="glass" style="padding: 40px;">
+                            <button onclick="closeReader()" class="btn-ice" style="margin-bottom: 20px;">← Back to Journal</button>
+                            <div class="reader-header">
+                                <div id="reader-title" class="reader-title">Post Title</div>
+                                <div class="reader-meta">
+                                    <span id="reader-date">📅 Date</span>
+                                    <span id="reader-stats" class="meta-tag"># Stats</span>
+                                </div>
+                            </div>
+                            <div id="reader-body" class="reader-content">
+                                <!-- Full content goes here -->
+                            </div>
+
+                            <!-- Comments Section -->
+                            <div class="comments-section">
+                                <div class="comments-header">Discussion</div>
+                                
+                                <div id="comments-container" class="comment-list">
+                                    <!-- Comments injected here -->
+                                </div>
+
+                                <div id="comment-form-container">
+                                    <!-- Logged In: Show Form -->
+                                    <div id="active-comment-form" class="comment-form">
+                                        <textarea id="new-comment-text" rows="3" placeholder="Write a thoughtful comment..."></textarea>
+                                        <button class="btn-ice" onclick="submitComment()">Post Comment</button>
+                                    </div>
+                                    <!-- Logged Out: Show Prompt -->
+                                    <div id="login-prompt" class="login-prompt">
+                                        <p>Please <strong style="cursor:pointer; text-decoration:underline;" onclick="showPage('login')">login</strong> to join the discussion.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CONTACT TAB -->
+            <div id="contact" class="page-section">
+                <div class="glass tilt-card" style="padding: 40px; max-width: 600px; margin: 0 auto;">
+                    <h2 style="text-align: center; margin-bottom: 30px;">Contact</h2>
+
+                    <!-- DIRECT CONNECT -->
+                    <div style="background: var(--glass-highlight); padding: 15px; border-radius: 8px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--glass-border);">
+                        <div style="display: flex; gap: 12px; align-items: center;">
+                            <span style="font-size: 1.4rem;">👾</span>
+                            <div>
+                                <div style="font-size: 0.7rem; color: var(--text-secondary); font-weight: 700; letter-spacing: 0.5px;">DISCORD</div>
+                                <div style="font-weight: 600; font-size: 0.95rem; color: var(--text-primary);">blueice#1234</div>
+                            </div>
+                        </div>
+                        <button class="btn-ice" style="padding: 6px 12px; font-size: 0.75rem;" onclick="copyText('blueice#1234')">COPY</button>
+                    </div>
+
+                    <div style="background: var(--glass-highlight); padding: 15px; border-radius: 8px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--glass-border);">
+                        <div style="display: flex; gap: 12px; align-items: center;">
+                            <span style="font-size: 1.4rem;">📧</span>
+                            <div>
+                                <div style="font-size: 0.7rem; color: var(--text-secondary); font-weight: 700; letter-spacing: 0.5px;">EMAIL</div>
+                                <div style="font-weight: 600; font-size: 0.95rem; color: var(--text-primary);">hello@blueiceprojects.com</div>
+                            </div>
+                        </div>
+                        <button class="btn-ice" style="padding: 6px 12px; font-size: 0.75rem;" onclick="copyText('hello@blueiceprojects.com')">COPY</button>
+                    </div>
+                    
+                    <!-- FORM -->
+                    <div style="opacity: 0.7; pointer-events:none;">
+                        <input type="text" placeholder="Name">
+                        <input type="text" placeholder="Email">
+                        <textarea rows="5" placeholder="Message"></textarea>
+                        <button class="btn-ice" style="width: 100%;">Send Message (Unavailable)</button>
+                    </div>
+                    <p style="font-size: 0.8rem; color: var(--text-secondary); text-align: center; margin-top: 10px;">Please use Email or Discord above.</p>
+                </div>
+            </div>
+
+            <!-- LOGIN PAGE -->
+            <div id="login" class="page-section">
+                <div class="glass tilt-card login-card">
+                    <h2 style="margin-bottom: 20px; color: var(--text-primary);">System Access</h2>
+                    <div id="view-login">
+                        <input type="text" id="login-user" placeholder="Username" value="Guest" style="margin-bottom: 15px;">
+                        <input type="password" placeholder="Password" style="margin-bottom: 20px;">
+                        <button class="btn-ice" style="width:100%; padding: 12px; margin-bottom: 15px;" onclick="performLogin()">Login</button>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- GLOBAL RIGHT SIDEBAR (Always Visible) -->
+        <aside>
+            <div class="glass tilt-card sidebar-widget">
+                <div class="sidebar-header">STATUS</div>
+                <div class="char-display">
+                    <img id="char-avatar" src="neutral1 Background Removed.jpg" alt="Status Avatar" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMTAwIDEwMCI+PHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiMzMzMiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSI1MCI+8J+RgjwvdGV4dD48L3N2Zz4=';">
+                </div>
+                <div style="margin-top: 15px; font-size: 0.85rem; color: var(--text-secondary); text-align: center;">
+                    Admin is: <span style="color: #4ade80;">Online</span>
+                </div>
+            </div>
+            <div class="glass tilt-card sidebar-widget">
+                <div class="sidebar-header">LINKS</div>
+                <ul class="pixel-list">
+                    <li onclick="showPage('projects')"><span class="px-icon"></span> My Works</li>
+                    <li onclick="showPage('blog')"><span class="px-icon"></span> Journal</li>
+                </ul>
+            </div>
+        </aside>
+    </div>
+
+    <!-- FOOTER -->
+    <footer style="text-align: center; padding: 40px; color: var(--text-secondary); font-size: 0.85rem;">
+        <p>&copy; 2025 Blue Ice. Clean & Functional.</p>
+    </footer>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // --- 1. GLOBAL STATE ---
+        let currentUser = null; // Default logged out
+        let currentPostId = null;
+
+        // --- 2. UTILS ---
+        function copyText(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert("Copied: " + text);
+            }).catch(err => {
+                console.error('Failed to copy: ', err);
+                alert("Please manually copy: " + text);
+            });
+        }
+
+        // Calculate Reading Time (200 words per minute average)
+        function calculateReadStats(htmlContent) {
+            // Strip HTML tags to get raw text
+            const text = htmlContent.replace(/<[^>]*>?/gm, '');
+            const wordCount = text.trim().split(/\s+/).length;
+            const readTime = Math.ceil(wordCount / 200);
+            return { count: wordCount, time: readTime };
+        }
+
+        // --- 3. DATA ---
+        
+        // PROJECT CARDS
+        const projectData = [
+            {
+                id: 1,
+                title: "Neon Dashboard UI Demo",
+                description: "A data visualization concept built with d3.js, featuring a high-contrast dark theme.",
+                videoID: "Qd974r58B1s" 
+            },
+            {
+                id: 2,
+                title: "Synth Wave Audio Engine",
+                description: "A real-time synthesizer built entirely with the Web Audio API for browser-based music creation.",
+                videoID: "pW_S40R47g4" 
+            },
+            {
+                id: 3,
+                title: "Adaptive Portfolio Design",
+                description: "Showcasing responsiveness and accessibility testing across various mobile devices and tablets.",
+                videoID: "6I-9V2Q4vW8" 
+            }
+        ];
+
+        // BLOG POSTS (With Comment Arrays)
+        const blogPosts = [
+            {
+                id: 1,
+                title: "Returning to Simplicity",
+                date: "2025-12-09",
+                category: "Engineering",
+                excerpt: "Sometimes less is more. We stripped back the cyberpunk aesthetics for a cleaner 2000s-inspired look.",
+                emoji: "🔮",
+                content: `
+                    <p>In a world of maximalist design and overwhelming notifications, I found myself craving silence. Not literal silence, but visual silence.</p>
+                    <p>We spent the last decade adding blur filters, heavy shadows, and complex animations to the web. While beautiful, it often feels heavy. For this project, 'Blue Ice', I wanted to return to a simpler era of the internet—where structure was clear, and content was king.</p>
+                    <h3>The Glass Effect</h3>
+                    <p>The glassmorphism you see here isn't just a trend; it's a metaphor for transparency. By using <code>backdrop-filter</code>, we create depth without blocking the background context. It feels like a heads-up display (HUD) from a sci-fi movie, but clean enough for a daily journal.</p>
+                    <p>Moving forward, I plan to strip away even more non-essential elements. If a feature doesn't serve the content, it goes.</p>
+                `,
+                comments: [
+                    { user: "DevOne", text: "Love the clean aesthetic!", time: "2 hours ago" }
+                ]
+            },
+            {
+                id: 2,
+                title: "The Void Aesthetic",
+                date: "2025-12-01",
+                category: "Personal",
+                excerpt: "Exploring why deep blue gradients feel so calming in user interfaces. A deep dive into color theory.",
+                emoji: "🌌",
+                content: `
+                    <p>There is something inherently calming about the color blue. It is the color of the deep ocean and the night sky. In user interface design, we often use white or light gray for backgrounds, but 'Dark Mode' has opened up new possibilities.</p>
+                    <p>The 'Void Aesthetic' isn't just about pitch black; it's about deep, rich tones. The background of this site uses a very dark blue (<code>#020617</code>) which provides high contrast for text without the harshness of pure black.</p>
+                    <h3>Color Theory</h3>
+                    <p>Cyan (<code>#0891b2</code>) is used as the accent color here because it represents energy within the void. It pops against the dark background, guiding the user's eye to important elements like buttons and links.</p>
+                    <p>I believe that interfaces should feel like environments. When you visit this site, I want you to feel like you've stepped into a cool, quiet room.</p>
+                `,
+                comments: []
+            }
+        ];
+
+        const marqueeImages = [
+            "image1.jpg", "image2.jpg", "image3.jpg", "image4.jpg", "image5.jpg",
+            "image6.jpg", "image7.jpg", "image8.jpg", "image9.jpg", "image10.jpg",
+            "image11.jpg", "image12.jpg", "image13.jpg", "image14.jpg", "image15.jpg"
+        ];
+
+        // --- 4. RENDERERS ---
+        function renderProjects() {
+            const gridContainer = document.getElementById('projects-grid');
+            gridContainer.innerHTML = ""; 
+
+            projectData.forEach(project => {
+                const card = document.createElement('div');
+                card.className = "glass tilt-card project-card-video";
+                card.onclick = () => alert('Project link clicked for: ' + project.title);
+                
+                card.innerHTML = `
+                    <div class="video-container">
+                        <iframe 
+                            src="https://www.youtube-nocookie.com/embed/${project.videoID}?controls=0" 
+                            title="${project.title}" 
+                            frameborder="0" 
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                            allowfullscreen>
+                        </iframe>
+                    </div>
+                    <h3>${project.title}</h3>
+                    <p style="font-size: 0.9rem; color: var(--text-secondary);">${project.description}</p>
+                `;
+                gridContainer.appendChild(card);
+            });
+        }
+
+        function renderMarquee() {
+            const track = document.getElementById('marquee-track');
+            track.innerHTML = "";
+            const fullList = [...marqueeImages, ...marqueeImages];
+
+            fullList.forEach((imgSrc, index) => {
+                const item = document.createElement('div');
+                item.className = "marquee-item";
+                const fallbackImg = `data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMTUwIiB2aWV3Qm94PSIwIDAgMjAwIDE1MCI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIxNTAiIGZpbGw9IiMzMzMiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSIyMCIgZmlsbD0iI2ZmZiI+SW1hZ2UgJHtpbmRleCsxfTwvdGV4dD48L3N2Zz4=`;
+                item.innerHTML = `<img src="${imgSrc}" alt="Client Image" onerror="this.src='${fallbackImg}'">`;
+                track.appendChild(item);
+            });
+        }
+        
+        function renderBlogFeed() {
+            const listContainer = document.getElementById('blog-list');
+            listContainer.innerHTML = ""; 
+
+            blogPosts.forEach(post => {
+                const stats = calculateReadStats(post.content);
+                const card = document.createElement('div');
+                card.className = "glass tilt-card post-card-horiz";
+                card.onclick = () => openReader(post.id);
+                
+                card.innerHTML = `
+                    <div class="post-info">
+                        <div class="post-meta-row">
+                            <span>📅 ${post.date}</span>
+                            <span class="meta-tag"># ${post.category}</span>
+                        </div>
+                        <h3 class="post-title-lg">${post.title}</h3>
+                        <p class="post-excerpt-sm">${post.excerpt}</p>
+                        <div class="post-stats">${stats.count} words | ${stats.time} min read</div>
+                    </div>
+                    <div class="post-thumb-rect">${post.emoji}</div>
+                `;
+                listContainer.appendChild(card);
+            });
+        }
+
+        // --- 5. READER & COMMENT LOGIC ---
+        function openReader(id) {
+            currentPostId = id;
+            const post = blogPosts.find(p => p.id === id);
+            if(!post) return;
+
+            // Stats
+            const stats = calculateReadStats(post.content);
+
+            // Populate Reader
+            document.getElementById('reader-title').innerText = post.title;
+            document.getElementById('reader-date').innerText = "📅 " + post.date;
+            document.getElementById('reader-stats').innerText = `${stats.count} words • ${stats.time} min read`;
+            document.getElementById('reader-body').innerHTML = post.content;
+
+            // Render Comments
+            renderComments(post);
+            updateCommentFormVisibility();
+
+            // Switch Views
+            document.getElementById('blog-list').style.display = 'none';
+            document.getElementById('blog-reader').style.display = 'block';
+            
+            // Scroll to top of reader
+            document.getElementById('blog').scrollIntoView({behavior: 'smooth'});
+        }
+
+        function closeReader() {
+            document.getElementById('blog-reader').style.display = 'none';
+            document.getElementById('blog-list').style.display = 'block'; 
+            currentPostId = null;
+        }
+
+        function renderComments(post) {
+            const container = document.getElementById('comments-container');
+            container.innerHTML = "";
+
+            if (post.comments.length === 0) {
+                container.innerHTML = `<div style="font-style:italic; color:var(--text-secondary); opacity:0.7;">No comments yet. Be the first!</div>`;
+                return;
+            }
+
+            post.comments.forEach(comment => {
+                const div = document.createElement('div');
+                div.className = 'comment-item';
+                div.innerHTML = `
+                    <div class="comment-user">${comment.user}</div>
+                    <div class="comment-text">${comment.text}</div>
+                    <div class="comment-time">${comment.time}</div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function updateCommentFormVisibility() {
+            const form = document.getElementById('active-comment-form');
+            const prompt = document.getElementById('login-prompt');
+            
+            if (currentUser && currentUser !== "Guest") {
+                form.style.display = 'block';
+                prompt.style.display = 'none';
+            } else {
+                form.style.display = 'none';
+                prompt.style.display = 'block';
+            }
+        }
+
+        function submitComment() {
+            const input = document.getElementById('new-comment-text');
+            const text = input.value.trim();
+            if (!text) return;
+
+            const post = blogPosts.find(p => p.id === currentPostId);
+            if (post) {
+                // Add new comment
+                post.comments.push({
+                    user: currentUser,
+                    text: text,
+                    time: "Just now"
+                });
+                
+                // Clear and re-render
+                input.value = "";
+                renderComments(post);
+            }
+        }
+
+        // --- 6. CORE SITE LOGIC ---
+        function toggleTheme() {
+            const body = document.body;
+            const btn = document.querySelector('.theme-toggle-btn');
+            if (body.getAttribute('data-theme') === 'dark') {
+                body.removeAttribute('data-theme');
+                btn.innerHTML = '☾';
+            } else {
+                body.setAttribute('data-theme', 'dark');
+                btn.innerHTML = '☀';
+            }
+        }
+
+        function showPage(id) {
+            window.scrollTo({top:0, behavior:'smooth'});
+            document.querySelectorAll('.page-section').forEach(p => p.classList.remove('active'));
+            setTimeout(() => document.getElementById(id).classList.add('active'), 50);
+            document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+            const link = document.getElementById('nav-'+id);
+            if(link) link.classList.add('active');
+        }
+
+        function performLogin() {
+            const inputVal = document.getElementById('login-user').value;
+            currentUser = inputVal || "Guest";
+            
+            document.getElementById('nav-login-btn').innerText = currentUser;
+            
+            // Redirect to home or back to blog if they were trying to comment
+            showPage('blog'); 
+            
+            // If a post is currently open, refresh the form state
+            updateCommentFormVisibility();
+        }
+
+        // --- 7. INITIALIZATION ---
+        window.addEventListener('load', () => {
+            // Boot Screen Animation
+            const bar = document.getElementById('boot-bar'); let w = 0;
+            const int = setInterval(() => {
+                w += Math.random() * 8; if(w > 100) w = 100; bar.style.width = w + "%";
+                if(w === 100) { 
+                    clearInterval(int); 
+                    setTimeout(() => { 
+                        document.getElementById('boot-screen').style.opacity = '0'; 
+                        setTimeout(() => { document.getElementById('boot-screen').style.display = 'none'; typeWriter(); }, 800); 
+                    }, 500); 
+                }
+            }, 50);
+            
+            // Render Dynamic Content
+            renderBlogFeed();
+            renderMarquee();
+            renderProjects();
+        });
+
+        // Typewriter
+        const txt = "Blue Ice Systems."; let ti = 0;
+        function typeWriter() { const el = document.getElementById('typewriter'); if(ti < txt.length && el) { el.innerHTML += txt.charAt(ti); ti++; setTimeout(typeWriter, 100); } }
+
+        // Particle Canvas
+        const canvas = document.getElementById('particle-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        window.addEventListener('resize', resize); resize();
+        class Particle {
+            constructor() {
+                this.x = Math.random() * canvas.width; this.y = Math.random() * canvas.height;
+                this.size = Math.random() * 2.5;
+                this.speedX = (Math.random() - 0.5) * 1.5; this.speedY = (Math.random() - 0.5) * 1.5;
+                this.opacity = Math.random() * 0.9 + 0.1;
+            }
+            update() {
+                this.x += this.speedX; this.y += this.speedY;
+                if (this.x > canvas.width) this.x = 0; if (this.x < 0) this.x = canvas.width;
+                if (this.y > canvas.height) this.y = 0; if (this.y < 0) this.y = canvas.height;
+            }
+            draw() {
+                const isDark = document.body.getAttribute('data-theme') === 'dark';
+                ctx.fillStyle = isDark ? `rgba(34, 211, 238, ${this.opacity})` : `rgba(8, 145, 178, ${this.opacity})`;
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fill();
+            }
+        }
+        for (let i = 0; i < 80; i++) particles.push(new Particle());
+        function animateParticles() { ctx.clearRect(0, 0, canvas.width, canvas.height); particles.forEach(p => { p.update(); p.draw(); }); requestAnimationFrame(animateParticles); }
+        animateParticles();
+        
+        // Tilt Effect
+        document.addEventListener('mousemove', (e) => {
+            document.querySelectorAll('.tilt-card').forEach(card => {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left; const y = e.clientY - rect.top;
+                if (x > -50 && x < rect.width + 50 && y > -50 && y < rect.height + 50) {
+                    const rotateX = ((y - rect.height/2) / 30) * -1; 
+                    const rotateY = (x - rect.width/2) / 30;
+                    card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+                } else { card.style.transform = 'perspective(1000px) rotateX(0) rotateY(0)'; }
+            });
+        });
+    </script>
+</body>
+</html>
