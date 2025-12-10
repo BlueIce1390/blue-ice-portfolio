@@ -163,7 +163,8 @@
 
         /* --- 6. LAYOUT --- */
         .container {
-            max-width: 1400px; margin: 40px auto;
+            max-width: 1600px; /* WIDENED FOR DESKTOP VIEW */
+            margin: 40px auto;
             display: grid; grid-template-columns: 1fr 280px; /* Main Content | Global Sidebar */
             gap: 40px; padding: 0 30px; flex-grow: 1;
         }
@@ -242,8 +243,8 @@
         .marquee-track { display: flex; gap: 20px; width: max-content; animation: scroll 89s linear infinite; }
         .marquee-item {
             /* ADJUSTED FOR MORE RECTANGULAR LOOK */
-            width: 400px; 
-            height: 80px; 
+            width: 280px; 
+            height: 120px; 
             flex-shrink: 0;
             background: var(--glass-highlight); border-radius: 8px;
             border: 1px solid var(--glass-border); overflow: hidden;
@@ -256,6 +257,7 @@
 
         /* --- 10. BLOG LAYOUT & READER --- */
         .blog-internal-layout {
+            /* Adjusting the column layout to use more space */
             display: grid;
             grid-template-columns: 240px 1fr; /* Sidebar | Feed */
             gap: 30px;
@@ -766,7 +768,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, signInAnonymously, signInWithCustomToken, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, collection, getDocs, addDoc, query, orderBy, doc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, getDocs, addDoc, query, orderBy, doc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         // ==========================================
         //  PASTE YOUR FIREBASE CONFIG HERE 👇
@@ -842,7 +844,7 @@
         };
 
         window.signUpEmail = async () => {
-            if (!auth) return alert("Firebase Config Missing.");
+            if (!auth) return alert("Please configure Firebase first!");
             const email = document.getElementById('signup-email').value;
             const pass = document.getElementById('signup-pass').value;
             try {
@@ -912,6 +914,28 @@
                 renderBlogFeed(window.staticBlogPosts);
             }
         };
+        
+        // Function to fetch comments for a specific post
+        window.fetchComments = async (postId) => {
+            if (!db || !postId || postId.startsWith('static_')) return [];
+
+            try {
+                const commentsRef = collection(db, "posts", postId, "comments");
+                // Fetch comments ordered by timestamp
+                const commentsSnapshot = await getDocs(query(commentsRef, orderBy("timestamp", "asc")));
+                
+                return commentsSnapshot.docs.map(doc => {
+                    const data = doc.data();
+                    // Simple formatting of the timestamp for display
+                    const time = data.timestamp ? new Date(data.timestamp).toLocaleString() : 'N/A';
+                    return { ...data, time: time };
+                });
+
+            } catch(e) {
+                console.error(`Error fetching comments for post ${postId}:`, e);
+                return [];
+            }
+        }
 
         // --- ADMIN TOOL: UPLOAD STATIC TO DB ---
         window.uploadStaticToFirebase = async () => {
@@ -935,14 +959,14 @@
             }
         };
         
-        // --- COMMENT SUBMISSION (FIXED) ---
-        window.submitComment = async () => {
+        // --- COMMENT SUBMISSION (FIXED TO SAVE TO FIREBASE) ---
+        window.module_submitComment = async (txt) => {
             if (!db) return alert("Database not connected. Comment not saved.");
             if (!window.currentUser || window.authUser.isAnonymous) return alert("Please log in with a registered account to post comments.");
             if (!currentPostId || currentPostId.startsWith('static_')) return alert("Cannot comment on static posts. Please upload posts to Firebase first.");
 
-            const txt = document.getElementById('new-comment-text').value.trim();
-            if (!txt) return;
+            const text = txt.trim();
+            if (!text) return;
 
             try {
                 const postRef = doc(db, "posts", currentPostId);
@@ -950,28 +974,25 @@
 
                 await addDoc(commentsCollectionRef, {
                     user: window.currentUser,
-                    text: txt,
-                    timestamp: new Date().toISOString(),
-                    // Store UID for future comment management/deletion
+                    text: text,
+                    timestamp: new Date().toISOString(), // Use client timestamp for simple sorting
                     userId: window.authUser.uid
                 });
                 
                 document.getElementById('new-comment-text').value = "";
-                alert("Comment posted successfully!");
-
-                // OPTIONAL: Manually refresh the comments section to see the change instantly
-                // Note: For now, we'll tell the user to refresh until we implement full snapshot listener.
-                // For a simple fix, we simulate adding it locally:
+                
+                // --- INSTANT UI UPDATE ---
+                // Fetch and re-render the comments immediately to show the new one
+                const freshComments = await window.fetchComments(currentPostId);
                 const post = window.liveBlogPosts.find(p => p.id === currentPostId);
-                if(post) {
-                    if(!post.comments) post.comments = [];
-                    post.comments.push({user: window.currentUser, text: txt, time: "Just now"});
-                    renderComments(post);
-                }
+                if(post) post.comments = freshComments; // Update the stored version
+                window.renderComments(post);
+
+                alert("Comment posted successfully!");
                 
             } catch (e) {
                 console.error("Error saving comment:", e);
-                alert("Failed to save comment. Check Firebase rules.");
+                alert("Failed to save comment. Check Firebase rules (must allow 'create' for logged-in users).");
             }
         };
 
@@ -1156,9 +1177,9 @@
         }
 
         // --- 4. READER & COMMENTS ---
-        function openReader(id) {
+        async function openReader(id) {
             currentPostId = id;
-            // Check both static and live lists
+            
             let post = window.liveBlogPosts.find(p => p.id === id) || window.staticBlogPosts.find(p => p.id === id);
             
             if(!post) return;
@@ -1176,6 +1197,12 @@
                 coverImg.style.display = 'block';
             } else {
                 coverImg.style.display = 'none';
+            }
+            
+            // --- FETCH COMMENTS ON OPEN (If not static) ---
+            if (!id.startsWith('static_') && window.fetchComments) {
+                const freshComments = await window.fetchComments(id);
+                post.comments = freshComments; // Update comments on the post object
             }
             
             renderComments(post);
@@ -1206,11 +1233,14 @@
                 return;
             }
             comments.forEach(c => {
+                // If timestamp is ISO string, format it
+                const timeDisplay = c.timestamp ? new Date(c.timestamp).toLocaleString() : c.time || 'N/A';
+                
                 container.innerHTML += `
                     <div class="comment-item">
                         <div class="comment-user">${c.user}</div>
                         <div class="comment-text">${c.text}</div>
-                        <div class="comment-time">${c.time}</div>
+                        <div class="comment-time">${timeDisplay}</div>
                     </div>`;
             });
         }
@@ -1231,19 +1261,10 @@
             const txt = document.getElementById('new-comment-text').value.trim();
             if(!txt) return;
             
-            // Call the permanent save function from the module script
             if (window.module_submitComment) {
-                // The module script will handle the saving and UI update/alert
                 await window.module_submitComment(txt);
             } else {
-                // Fallback simulation (local-only)
-                alert(`Comment from ${window.currentUser} posted! (Not saved permanently to database)`);
-                const post = window.liveBlogPosts.find(p => p.id === currentPostId) || window.staticBlogPosts.find(p => p.id === currentPostId);
-                if(post) {
-                    if(!post.comments) post.comments = [];
-                    post.comments.push({user: window.currentUser, text: txt, time: "Just now"});
-                    renderComments(post);
-                }
+                alert(`Cannot save comment. Firebase Module is not loaded or configured.`);
                 document.getElementById('new-comment-text').value = "";
             }
         };
@@ -1315,7 +1336,7 @@
                 if(myComments.length === 0) {
                     container.innerHTML = `<div style="font-style:italic; opacity:0.7;">You haven't commented on anything yet.</div>`;
                 } else {
-                    container.innerHTML = `<div style="margin-bottom:15px; font-weight:700;">Your Comments (Not yet saved to cloud)</div>`;
+                    container.innerHTML = `<div style="margin-bottom:15px; font-weight:700;">Your Comments (Saved to Database)</div>`;
                     myComments.forEach(c => {
                         container.innerHTML += `
                             <div style="background:rgba(0,0,0,0.03); padding:10px; border-radius:6px; margin-bottom:10px; font-size:0.9rem;">
