@@ -481,10 +481,11 @@
     <nav class="top-bar">
         <div class="logo" onclick="showPage('home')">Blue Ice</div>
         <div class="nav-links">
-            <a onclick="showPage('home')" id="nav-home" class="active">Home</a>
-            <a onclick="showPage('projects')" id="nav-projects">Projects</a>
-            <a onclick="showPage('blog')" id="nav-blog">Blog</a>
-            <a onclick="showPage('contact')" id="nav-contact">Contact</a>
+            <!-- FIXED: Added preventDefault to allow JS routing -->
+            <a href="/" onclick="event.preventDefault(); showPage('home')" id="nav-home" class="active">Home</a>
+            <a href="/projects" onclick="event.preventDefault(); showPage('projects')" id="nav-projects">Projects</a>
+            <a href="/blog" onclick="event.preventDefault(); showPage('blog')" id="nav-blog">Blog</a>
+            <a href="/contact" onclick="event.preventDefault(); showPage('contact')" id="nav-contact">Contact</a>
         </div>
         <div class="nav-controls">
             <button class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle Theme">☾</button>
@@ -667,7 +668,7 @@
             <!-- LOGIN PAGE -->
             <div id="login" class="page-section">
                 <div class="glass tilt-card login-card">
-                    <h2 style="margin-bottom: 20px; color: var(--text-primary);">System Access</h2>
+                    <h2 style="margin-bottom: 20px; color: var(--text-primary);">Login or Sign up</h2>
                     
                     <!-- LOGIN VIEW -->
                     <div id="view-login">
@@ -746,7 +747,7 @@
                     <img id="char-avatar" src="hairflow.gif" alt="Status Avatar" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMTAwIDEwMCI+PHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMCIiIGZpbGw9IiMzMzMiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSI1MCI+8J+RgjwvdGV4dD48L3N2Zz4=';">
                 </div>
                 <div style="margin-top: 15px; font-size: 0.85rem; color: var(--text-secondary); text-align: center;">
-                    Admin is: <span style="color: #4ade80;">Online</span>
+                    Yoshio Kabayashi from <em>Trickster</em>
                 </div>
             </div>
             <div class="glass tilt-card sidebar-widget">
@@ -754,6 +755,7 @@
                 <ul class="pixel-list">
                     <li onclick="showPage('projects')"><span class="px-icon"></span> My Works</li>
                     <li onclick="showPage('blog')"><span class="px-icon"></span> Journal</li>
+                    <li><span class="px-icon"></span> <a href="https://discord.gg/FC5E9WJRzE" target="_blank">Discord Server</a></li>
                 </ul>
             </div>
         </aside>
@@ -1048,7 +1050,7 @@
         // --- 1. GLOBAL STATE & STATIC DATA ---
         let currentPostId = null;
         window.liveBlogPosts = []; // Will hold DB posts
-        
+
         // Allowed paths for URL routing
         const VALID_ROUTES = ['home', 'projects', 'blog', 'contact', 'login'];
 
@@ -1109,7 +1111,8 @@
             }
         }
 
-        // --- URL ROUTING LOGIC (FIXED) ---
+        // Initialize button icon on load is handled by the immediate script block now.
+
         function showPage(id, updateHistory = true) {
             
             // Validate and determine the final route ID
@@ -1135,7 +1138,10 @@
             // Update URL using History API
             if (updateHistory) {
                 let path = (id === 'home' ? '/' : '/' + id);
-                history.pushState({ id: routeId }, '', path);
+                // We only push state if the page ID is a top-level route (home, projects, blog, contact, login)
+                if (VALID_ROUTES.includes(id)) {
+                    history.pushState({ id: routeId }, '', path);
+                }
             }
             
             // Ensure the reader view is closed unless we are navigating to the main 'blog' page
