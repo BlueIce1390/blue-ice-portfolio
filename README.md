@@ -1,2 +1,2 @@
 # blue-ice-portfolio
-Archan's Blog + Portfolio Websit
+Archan's Blog + Portfolio Website. WOW SO COOL!
