@@ -1117,14 +1117,13 @@
             
             // Validate and determine the final route ID
             let routeId = id;
-            if (!VALID_ROUTES.includes(id)) {
-                 // Check if the path is /blog/postID and navigate to blog, handling post view internally later
-                const pathParts = id.split('/');
-                if (pathParts.length > 1 && pathParts[0] === 'blog') {
-                    routeId = 'blog';
-                } else {
-                    routeId = 'home';
-                }
+            
+            // Check if the path is /blog/postID, if so, the container is 'blog'
+            const pathParts = id.split('/');
+            if (pathParts.length > 1 && pathParts[0] === 'blog') {
+                routeId = 'blog';
+            } else if (!VALID_ROUTES.includes(id)) {
+                routeId = 'home';
             }
 
             window.scrollTo({top:0, behavior:'smooth'});
@@ -1132,16 +1131,15 @@
             setTimeout(() => document.getElementById(routeId).classList.add('active'), 50);
             
             document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
-            const link = document.getElementById('nav-'+routeId);
+            const navId = VALID_ROUTES.includes(routeId) ? routeId : 'home';
+            const link = document.getElementById('nav-'+navId);
             if(link) link.classList.add('active');
 
             // Update URL using History API
             if (updateHistory) {
+                // If the user clicked a link (e.g., 'projects'), we update the path
                 let path = (id === 'home' ? '/' : '/' + id);
-                // We only push state if the page ID is a top-level route (home, projects, blog, contact, login)
-                if (VALID_ROUTES.includes(id)) {
-                    history.pushState({ id: routeId }, '', path);
-                }
+                history.pushState({ id: routeId }, '', path);
             }
             
             // Ensure the reader view is closed unless we are navigating to the main 'blog' page
