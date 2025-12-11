@@ -1148,25 +1148,31 @@
             }
         }
 
-        // Function run on initial load or browser navigation (back/forward)
-        function handleInitialRoute() {
-            const path = window.location.pathname.substring(1); // Remove leading '/'
-            const pathSegments = path.split('/');
-            let routeId = pathSegments[0] || 'home';
-            
-            if (VALID_ROUTES.includes(routeId)) {
-                showPage(routeId, false); // Load page but don't add to history
+// Function run on initial load or browser navigation (back/forward)
+function handleInitialRoute() {
+    // *** NEW: Check for redirected path from 404.html ***
+    const redirectedPath = sessionStorage.getItem('redirectPath');
+    sessionStorage.removeItem('redirectPath'); // Clear it immediately
 
-                // Handle deep link into blog post (e.g., /blog/post_id)
-                if (routeId === 'blog' && pathSegments.length > 1 && pathSegments[1]) {
-                    // Open the specific post if an ID is present
-                    openReader(pathSegments[1]); 
-                }
-            } else {
-                showPage('home', false); // Default to home if route is invalid
-            }
+    const path = redirectedPath ? redirectedPath.substring(1) : window.location.pathname.substring(1);
+    
+    // Original logic:
+    const pathSegments = path.split('/');
+    let routeId = pathSegments[0] || 'home';
+    
+    // ... rest of the function (no changes needed below here)
+    if (VALID_ROUTES.includes(routeId)) {
+        showPage(routeId, false); // Load page but don't add to history
+
+        // Handle deep link into blog post (e.g., /blog/post_id)
+        if (routeId === 'blog' && pathSegments.length > 1 && pathSegments[1]) {
+            // Open the specific post if an ID is present
+            openReader(pathSegments[1]);
         }
-
+    } else {
+        showPage('home', false); // Default to home if route is invalid
+    }
+}
         // Listen for browser back/forward buttons
         window.addEventListener('popstate', (e) => {
              handleInitialRoute();
