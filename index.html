@@ -623,7 +623,8 @@
                         <!-- 2. BLOG READER VIEW (Hidden by default) -->
                         <div id="blog-reader" class="glass" style="padding: 40px;">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                                <button onclick="closeReader()" class="btn-ice">← Back to Journal</button>
+                                <!-- CHANGED: Use showPage('blog') to handle URL and page transition -->
+                                <button onclick="showPage('blog')" class="btn-ice">← Back to Journal</button>
                                 <button onclick="toggleSavePost()" id="btn-save-post" class="btn-ice">❤️ Save</button>
                             </div>
                             
@@ -1261,7 +1262,8 @@
             }
             
             if (VALID_ROUTES.includes(routeId)) {
-                showPage(routeId, false); // Load page but don't add to history
+                // IMPORTANT: The second argument is false, so showPage does NOT push a new URL
+                showPage(routeId, false); 
 
                 // Handle deep link into blog post (e.g., /blog/post_id)
                 if (routeId === 'blog' && pathSegments.length > 1 && pathSegments[1]) {
@@ -1394,8 +1396,8 @@
             const dashboardContent = document.getElementById('dashboard-content');
             if (dashboardContent) dashboardContent.style.display = 'none';
             
-            // Update URL back to /blog
-            history.pushState({ id: 'blog' }, '', '/blog');
+            // REMOVED: history.pushState({ id: 'blog' }, '', '/blog');
+            // This URL manipulation is now handled by the 'Back to Journal' button calling showPage('blog')
         }
 
         function renderComments(post) {
