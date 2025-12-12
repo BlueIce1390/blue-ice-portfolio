@@ -634,12 +634,8 @@
                         </div>
                         <div class="glass blog-sidebar-widget" style="padding: 20px;">
                             <div class="sidebar-header" style="border:none; margin-bottom:10px;">Categories</div>
-                            <ul class="cat-list">
-                                <li class="cat-item"><span>Guide</span> <span class="cat-count">1</span></li>
-                                <li class="cat-item"><span>Personal</span> <span class="cat-count">1</span></li>
-                                <li class="cat-item"><span>School</span> <span class="cat-count">0</span></li>
-                                <li class="cat-item"><span>Youtube</span> <span class="cat-count">0</span></li>
-
+                            <ul class="cat-list" id="category-list">
+                                <!-- Categories injected here via JS -->
                             </ul>
                         </div>
                     </div>
@@ -786,8 +782,12 @@
                         
                         <!-- ADMIN ONLY: Upload Tool -->
                         <div id="admin-panel" style="display:none;">
-                            <button id="btn-admin-upload" class="btn-ice" style="width:100%; padding: 12px; margin-bottom:15px; border-color:#eab308; color:#eab308;" onclick="confirmUpload()">
-                                ⚠️ ADMIN: Upload Static Data to Cloud
+                            <button id="btn-admin-upload" class="btn-ice" style="width:100%; padding: 12px; margin-bottom:10px; border-color:#eab308; color:#eab308;" onclick="confirmUpload()">
+                                ⚠️ ADMIN: Upload/Sync Static Data
+                            </button>
+                            <!-- NEW DELETE BUTTON -->
+                            <button class="btn-ice" style="width:100%; padding: 12px; margin-bottom:15px; border-color:var(--error-red); color:var(--error-red);" onclick="confirmDeletion()">
+                                ❌ ADMIN: Delete ALL Static Data
                             </button>
                         </div>
 
@@ -844,8 +844,8 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, signInAnonymously, signInWithCustomToken, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        // IMPORT FIX: Added `setDoc`
-        import { getFirestore, collection, getDocs, addDoc, query, orderBy, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        // Ensure deleteDoc is imported
+        import { getFirestore, collection, getDocs, addDoc, query, orderBy, doc, getDoc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         // ==========================================
         //  PASTE YOUR FIREBASE CONFIG HERE 👇
@@ -982,14 +982,18 @@
                 const blogSnapshot = await getDocs(query(collection(db, "posts"), orderBy("date", "desc")));
                 const posts = blogSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-                // If DB empty, fallback to static
-                if(projects.length === 0) window.renderProjects(window.staticProjectData);
-                else window.renderProjects(projects);
+                // Set live data array (important for comment lookups)
+                window.liveBlogPosts = posts; 
 
-                if(posts.length === 0) window.renderBlogFeed(window.staticBlogPosts);
-                else {
-                    window.liveBlogPosts = posts; // Store for reader
-                    window.renderBlogFeed(posts);
+                // If DB empty, fallback to static
+                if(projects.length === 0 && posts.length === 0) {
+                     console.log("DB is empty. Falling back to static data.");
+                     window.renderProjects(window.staticProjectData);
+                     window.renderBlogFeed(window.staticBlogPosts);
+                } else {
+                     console.log("Loading data from Firebase.");
+                     window.renderProjects(projects);
+                     window.renderBlogFeed(posts);
                 }
 
             } catch (e) {
@@ -1029,9 +1033,12 @@
             try {
                 let uploadCount = 0;
 
-                // 1. Upload/Update Projects (Using title as document ID)
+                // Helper to create a clean ID from title for Projects
+                const slugify = (text) => text.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/(^_+|_+$)/g, '');
+
+                // 1. Upload/Update Projects (Using slugified title as document ID)
                 for (const p of window.staticProjectData) {
-                    const docId = p.title.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+                    const docId = slugify(p.title);
                     // setDoc with merge: true updates existing document or creates new one
                     await setDoc(doc(db, "projects", docId), p, { merge: true }); 
                     uploadCount++;
@@ -1039,7 +1046,8 @@
 
                 // 2. Upload/Update Blogs (Using the explicit 'id' field as document ID)
                 for (const b of window.staticBlogPosts) {
-                    if (!b.id) continue; // Skip posts without an explicit ID
+                    // Posts MUST have a unique ID defined in the static array to avoid duplication.
+                    if (!b.id) continue; 
                     const { id, comments, ...postData } = b;  
                     // Use the post ID as the document ID
                     await setDoc(doc(db, "posts", id), postData, { merge: true }); 
@@ -1051,8 +1059,37 @@
                 window.showMessage("Error uploading: " + e.message, true);
             }
         };
+        
+        // --- ADMIN TOOL: DELETE STATIC DATA FROM DB (NEW) ---
+        window.module_deleteStaticDataFromFirebase = async () => {
+            if (!db) return window.showMessage("Database not connected.", true);
+            
+            try {
+                let deleteCount = 0;
+                const slugify = (text) => text.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/(^_+|_+$)/g, '');
 
-        // --- ADMIN CONFIRM WRAPPER (Replaces old confirm()) ---
+                // 1. Delete Projects
+                for (const p of window.staticProjectData) {
+                    const docId = slugify(p.title);
+                    await deleteDoc(doc(db, "projects", docId)); 
+                    deleteCount++;
+                }
+
+                // 2. Delete Blogs
+                for (const b of window.staticBlogPosts) {
+                    if (!b.id) continue; 
+                    await deleteDoc(doc(db, "posts", b.id)); 
+                    deleteCount++;
+                }
+
+                window.showMessage(`Database Cleanup Complete! (${deleteCount} static items deleted). Please refresh the page to see the clean list.`, false);
+            } catch (e) {
+                window.showMessage("Error deleting data: " + e.message, true);
+            }
+        };
+
+
+        // --- ADMIN CONFIRM WRAPPER (Update for Upload) ---
         window.confirmUpload = () => {
             window.showConfirmation("This will upload all static blogs and projects to your database, updating existing entries with matching IDs. Continue?", async (result) => {
                 if (result) {
@@ -1063,42 +1100,17 @@
             });
         }
         
-        // --- COMMENT SUBMISSION (FIXED TO SAVE TO FIREBASE) ---
-        window.module_submitComment = async (txt) => {
-            if (!db) return window.showMessage("Database not connected. Comment not saved.", true);
-            if (!window.currentUser || window.authUser.isAnonymous) return window.showMessage("Please log in with a registered account to post comments.", true);
-            if (!window.currentPostId || window.currentPostId.startsWith('static_')) return window.showMessage("Cannot comment on static posts. Please upload posts to Firebase first.", true);
+        // --- ADMIN CONFIRM WRAPPER (NEW for Deletion) ---
+        window.confirmDeletion = () => {
+             window.showConfirmation("WARNING: This will permanently delete ALL static data posts and projects from your Firebase database. Are you sure you want to delete?", async (result) => {
+                if (result) {
+                    await window.module_deleteStaticDataFromFirebase();
+                } else {
+                    window.showMessage("Deletion cancelled.", true);
+                }
+            });
+        }
 
-            const text = txt.trim();
-            if (!text) return;
-
-            try {
-                const postRef = doc(db, "posts", window.currentPostId);
-                const commentsCollectionRef = collection(postRef, "comments");
-
-                await addDoc(commentsCollectionRef, {
-                    user: window.currentUser,
-                    text: text,
-                    timestamp: new Date().toISOString(), // Use client timestamp for simple sorting
-                    userId: window.authUser.uid
-                });
-                
-                document.getElementById('new-comment-text').value = "";
-                
-                // --- INSTANT UI UPDATE ---
-                // Fetch and re-render the comments immediately to show the new one
-                const freshComments = await window.fetchComments(window.currentPostId);
-                const post = window.liveBlogPosts.find(p => p.id === window.currentPostId);
-                if(post) post.comments = freshComments; // Update the stored version
-                window.renderComments(post);
-
-                window.showMessage("Comment posted successfully!");
-                
-            } catch (e) {
-                console.error("Error saving comment:", e);
-                window.showMessage("Failed to save comment. Check Firebase rules to allow writes to posts/{postId}/comments.", true);
-            }
-        };
 
         // --- AUTH LISTENER ---
         if (auth) {
@@ -1471,8 +1483,47 @@ My next big focus will be on the 'Creative' video idea outlined in my previous p
                 track.innerHTML += `<div class="marquee-item"><img src="${img}" onerror="this.src='${fallback}'"></div>`;
             });
         }
+        
+        // NEW CONSTANT: Base categories to initialize sidebar
+        const BASE_CATEGORIES = ["Creative", "Guide", "Personal", "School", "Youtube", "Engineering"];
+
+        function countCategories(posts) {
+            const counts = {};
+            // Initialize counts for base categories to ensure they show up even if count is 0
+            BASE_CATEGORIES.forEach(cat => counts[cat] = 0); 
+
+            posts.forEach(p => {
+                const category = p.category || "Uncategorized";
+                counts[category] = (counts[category] || 0) + 1;
+            });
+            return counts;
+        }
+
+        function renderCategories(posts) {
+            const counts = countCategories(posts);
+            const list = document.getElementById('category-list');
+            if (!list) return;
+
+            let html = '';
+            // Sort categories alphabetically
+            const allCategories = Object.keys(counts).sort();
+
+            allCategories.forEach(cat => {
+                const count = counts[cat] !== undefined ? counts[cat] : 0; 
+                html += `
+                    <li class="cat-item">
+                        <span>${cat}</span> 
+                        <span class="cat-count">${count}</span>
+                    </li>
+                `;
+            });
+            list.innerHTML = html;
+        }
 
         window.renderBlogFeed = (posts) => {
+            // Calculate and render categories first based on whatever posts are loaded
+            renderCategories(posts);
+
             const list = document.getElementById('blog-list');
             list.innerHTML = "";
             posts.forEach(p => {
