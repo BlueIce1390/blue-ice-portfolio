@@ -29,6 +29,7 @@
             --font-main: 'Montserrat', sans-serif;
             --error-red: #dc2626;
             --warning-yellow: #eab308;
+            --success-green: #10b981; /* Added for publish button */
         }
 
         body[data-theme="dark"] {
@@ -500,6 +501,29 @@
             box-shadow: var(--shadow-card); max-width: 400px;
             border: 1px solid var(--glass-border);
         }
+
+        /* --- New Admin Post Creator Styles --- */
+        .drag-drop-area {
+            border: 2px dashed var(--glass-border);
+            background: var(--glass-highlight);
+            padding: 20px;
+            text-align: center;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: border-color 0.3s ease, background 0.3s ease;
+        }
+        .drag-drop-area:hover, .drag-drop-area.drag-over {
+            border-color: var(--accent-cyan);
+            background: rgba(34, 211, 238, 0.1);
+        }
+        .image-preview {
+            max-width: 100%;
+            max-height: 200px;
+            object-fit: cover;
+            border-radius: 6px;
+            margin-top: 10px;
+            border: 1px solid var(--glass-border);
+        }
     </style>
 </head>
 <body>
@@ -789,6 +813,39 @@
                             <button class="btn-ice" style="width:100%; padding: 12px; margin-bottom:15px; border-color:var(--error-red); color:var(--error-red);" onclick="confirmDeletion()">
                                 ❌ ADMIN: Delete ALL Static Data
                             </button>
+
+                            <hr style="border-top: 1px solid var(--glass-border); margin: 25px 0;">
+
+                            <h3 style="font-size: 1.1rem; margin-bottom: 15px; color: var(--accent-cyan);">New Post Creator</h3>
+                            <div id="post-creator-form">
+                                <input type="text" id="new-post-title" placeholder="Post Title (required)">
+                                <input type="text" id="new-post-id" placeholder="Unique ID (e.g., 'my-new-post')">
+                                <input type="text" id="new-post-category" placeholder="Category (e.g., 'Creative')">
+                                <textarea id="new-post-excerpt" placeholder="Short Excerpt (for list view)"></textarea>
+
+                                <!-- Cover Image Drop Area -->
+                                <div id="cover-image-drop-area" class="drag-drop-area" onclick="document.getElementById('cover-image-input').click();">
+                                    <p id="cover-image-status" style="font-size: 0.9rem; color: var(--text-secondary);">
+                                        Click or drag/drop Cover Image (.png, .jpg)
+                                    </p>
+                                    <input type="file" id="cover-image-input" accept="image/png, image/jpeg" style="display: none;">
+                                    <img id="cover-image-preview" class="image-preview" style="display: none;">
+                                </div>
+                                
+                                <!-- Markdown Drop Area -->
+                                <div id="markdown-drop-area" class="drag-drop-area" style="margin-top: 15px;" onclick="document.getElementById('markdown-input').click();">
+                                    <p id="markdown-status" style="font-size: 0.9rem; color: var(--text-secondary);">
+                                        Click or drag/drop Markdown File (.md)
+                                    </p>
+                                    <input type="file" id="markdown-input" accept=".md" style="display: none;">
+                                </div>
+
+                                <textarea id="markdown-content-preview" rows="10" placeholder="Markdown content preview here..." readonly style="margin-top: 10px; display: none;"></textarea>
+
+                                <button class="btn-ice" style="width: 100%; padding: 12px; background: var(--success-green); color: #fff; border: none; margin-top: 20px;" onclick="uploadNewPostViaGUI()">
+                                    🚀 Publish New Post to Cloud
+                                </button>
+                            </div>
                         </div>
 
                         <!-- USER DASHBOARD -->
@@ -869,6 +926,12 @@
         } catch (e) {
             console.warn("Firebase config missing or invalid.");
         }
+
+        // --- GLOBAL STATE FOR NEW POST CREATOR ---
+        window.newPost = {
+            markdownContent: '',
+            coverImageBase64: '',
+        };
 
         // --- NEW: INITIALIZATION WITH AUTH ---
         async function initApp() {
@@ -1111,6 +1174,68 @@
             });
         }
 
+        // --- NEW ADMIN GUI UPLOAD LOGIC ---
+        window.uploadNewPostViaGUI = async () => {
+            if (!db) return window.showMessage("Database not connected.", true);
+            if (!window.authUser || window.authUser.email !== 'archan.s.bhatt@gmail.com') return window.showMessage("Permission Denied: Admin only.", true);
+
+            const title = document.getElementById('new-post-title').value.trim();
+            const id = document.getElementById('new-post-id').value.trim();
+            const category = document.getElementById('new-post-category').value.trim() || 'Uncategorized';
+            const excerpt = document.getElementById('new-post-excerpt').value.trim() || 'No excerpt provided.';
+            const image = window.newPost.coverImageBase64;
+            const content = window.newPost.markdownContent;
+
+            if (!title || !id || !content) {
+                return window.showMessage("Title, Unique ID, and Markdown Content are required.", true);
+            }
+            if (id.includes(' ')) {
+                return window.showMessage("Unique ID cannot contain spaces.", true);
+            }
+            if (!image) {
+                return window.showMessage("Please upload a cover image.", true);
+            }
+            
+            // Check if the ID already exists in the live data to warn the user
+            if (window.liveBlogPosts.some(p => p.id === id)) {
+                const overwrite = await window.showConfirmation("Warning: A post with this ID already exists. Overwrite?", async (result) => result);
+                if (!overwrite) return;
+            }
+
+            const postData = {
+                id: id,
+                title: title,
+                date: new Date().toISOString().substring(0, 10), // YYYY-MM-DD
+                category: category,
+                excerpt: excerpt,
+                image: image, // Base64 image data
+                content: content,
+            };
+
+            try {
+                // Use the provided ID as the document name
+                await setDoc(doc(db, "posts", id), postData);
+
+                // Clear GUI inputs after successful upload
+                document.getElementById('new-post-title').value = '';
+                document.getElementById('new-post-id').value = '';
+                document.getElementById('new-post-category').value = '';
+                document.getElementById('new-post-excerpt').value = '';
+                document.getElementById('cover-image-preview').src = '';
+                document.getElementById('cover-image-preview').style.display = 'none';
+                document.getElementById('cover-image-status').innerText = 'Click or drag/drop Cover Image (.png, .jpg)';
+                document.getElementById('markdown-content-preview').value = '';
+                document.getElementById('markdown-content-preview').style.display = 'none';
+                document.getElementById('markdown-status').innerText = 'Click or drag/drop Markdown File (.md)';
+                window.newPost.coverImageBase64 = '';
+                window.newPost.markdownContent = '';
+
+                window.showMessage(`Post "${title}" published successfully! Refresh to see it live.`, false);
+            } catch (e) {
+                console.error("Error publishing post via GUI:", e);
+                window.showMessage(`Failed to publish: ${e.message}`, true);
+            }
+        };
 
         // --- AUTH LISTENER ---
         if (auth) {
@@ -1570,7 +1695,11 @@ My next big focus will be on the 'Creative' video idea outlined in my previous p
                 const stats = calculateReadStats(p.content);
                 
                 let thumbContent;
-                if (p.image) {
+                // If post image starts with "data:image", it's a Base64 image from the GUI, display it.
+                if (p.image && p.image.startsWith('data:image')) {
+                     thumbContent = `<img src="${p.image}" alt="${p.title}" style="width:100%; height:100%; object-fit:cover;">`;
+                } else if (p.image) {
+                    // Regular URL or Placeholder
                     thumbContent = `<img src="${p.image}" alt="${p.title}" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMTQwIiB2aWV3Qm94PSIwIDAgMjgwIDE0MCI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIxNDAiIGZpbGw9IiMzMzMiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSIyMCIgZmlsbD0iI2ZmZiI+Q292ZXIgSW1hZ2U8L3RleHQ+PC9zdmc+'" style="width:100%; height:100%; object-fit:cover;">`;
                 } else {
                     thumbContent = p.emoji || '📄';
@@ -1613,6 +1742,7 @@ My next big focus will be on the 'Creative' video idea outlined in my previous p
             
             // Handle Cover Image
             const coverImg = document.getElementById('reader-cover');
+            // Check if image is Base64 data (starts with "data:image") or a regular URL
             if (post.image) {
                 coverImg.src = post.image;
                 coverImg.style.display = 'block';
@@ -1803,7 +1933,9 @@ My next big focus will be on the 'Creative' video idea outlined in my previous p
                         document.getElementById('boot-screen').style.opacity = '0';  
                         setTimeout(() => {  
                             document.getElementById('boot-screen').style.display = 'none';  
-                            typeWriter();  
+                            typeWriter(); 
+                            // Call GUI handlers after DOM is loaded and boot screen is gone
+                            initializePostCreatorHandlers(); 
                         }, 800);  
                     }, 500);  
                 }
@@ -1866,6 +1998,117 @@ My next big focus will be on the 'Creative' video idea outlined in my previous p
                 } else { card.style.transform = 'perspective(1000px) rotateX(0) rotateY(0)'; }
             });
         });
+
+        // --- 7. ADMIN GUI LOGIC ---
+
+        // Helper function to read file content (either text or base64 data URL)
+        function readFile(file, type) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => reject(reader.error);
+                
+                if (type === 'text') {
+                    reader.readAsText(file);
+                } else if (type === 'base64') {
+                    reader.readAsDataURL(file);
+                } else {
+                    reject(new Error('Invalid file read type'));
+                }
+            });
+        }
+
+        // Handler for the Cover Image
+        async function handleImageFile(file) {
+            if (!file || !file.type.startsWith('image/')) {
+                window.showMessage("Invalid file type. Please use an image (png/jpeg).", true);
+                return;
+            }
+            try {
+                const base64Data = await readFile(file, 'base64');
+                window.newPost.coverImageBase64 = base64Data;
+                
+                const preview = document.getElementById('cover-image-preview');
+                const status = document.getElementById('cover-image-status');
+                
+                preview.src = base64Data;
+                preview.style.display = 'block';
+                status.innerText = `Cover Image Loaded: ${file.name}`;
+            } catch(e) {
+                window.showMessage("Failed to load image.", true);
+                console.error(e);
+            }
+        }
+
+        // Handler for the Markdown File
+        async function handleMarkdownFile(file) {
+            if (!file || !file.name.endsWith('.md')) {
+                window.showMessage("Invalid file type. Please use a .md file.", true);
+                return;
+            }
+            try {
+                const content = await readFile(file, 'text');
+                window.newPost.markdownContent = content;
+                
+                const preview = document.getElementById('markdown-content-preview');
+                const status = document.getElementById('markdown-status');
+
+                preview.value = content;
+                preview.style.display = 'block';
+                status.innerText = `Markdown Loaded: ${file.name}`;
+            } catch(e) {
+                window.showMessage("Failed to read markdown file.", true);
+                console.error(e);
+            }
+        }
+
+
+        function setupDragAndDrop(areaId, inputId, fileHandler) {
+            const dropArea = document.getElementById(areaId);
+            const fileInput = document.getElementById(inputId);
+
+            if (!dropArea || !fileInput) return;
+
+            // Prevent default drag behaviors
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, preventDefaults, false);
+            });
+
+            // Highlight drop area when item is dragged over
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropArea.addEventListener(eventName, () => dropArea.classList.add('drag-over'), false);
+            });
+
+            // Unhighlight drop area when item leaves or is dropped
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, () => dropArea.classList.remove('drag-over'), false);
+            });
+
+            // Handle drop event
+            dropArea.addEventListener('drop', (e) => {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                if (files.length > 0) fileHandler(files[0]);
+            }, false);
+
+            // Handle input selection
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) fileHandler(e.target.files[0]);
+            });
+        }
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        function initializePostCreatorHandlers() {
+            // Setup handlers for Cover Image
+            setupDragAndDrop('cover-image-drop-area', 'cover-image-input', handleImageFile);
+
+            // Setup handlers for Markdown File
+            setupDragAndDrop('markdown-drop-area', 'markdown-input', handleMarkdownFile);
+        }
     </script>
 </body>
 </html>
